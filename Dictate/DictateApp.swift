@@ -30,11 +30,27 @@ struct MenuBarView: View {
             .disabled(appState.status == .processing || appState.status == .typing)
 
             if let error = appState.errorMessage {
-                Text(error)
-                    .font(.caption)
+                Divider()
+                Label(error, systemImage: "exclamationmark.triangle.fill")
                     .foregroundColor(.red)
-                    .lineLimit(2)
+                    .font(.caption)
+                    .lineLimit(3)
                     .padding(.horizontal, 8)
+                Button("Dismiss") {
+                    appState.errorMessage = nil
+                }
+            }
+
+            if !appState.lastTranscription.isEmpty {
+                Divider()
+                Text(appState.lastTranscription)
+                    .font(.caption)
+                    .lineLimit(3)
+                    .padding(.horizontal, 8)
+                Button("Copy Last Result") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(appState.lastTranscription, forType: .string)
+                }
             }
 
             Divider()
@@ -43,6 +59,11 @@ struct MenuBarView: View {
                 Text("Settings...")
             }
             .keyboardShortcut(",", modifiers: .command)
+
+            Button("Check for Updates...") {
+                appState.updaterService.checkForUpdates()
+            }
+            .disabled(!appState.updaterService.canCheckForUpdates)
 
             Divider()
 

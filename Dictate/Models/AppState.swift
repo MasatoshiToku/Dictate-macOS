@@ -3,6 +3,8 @@ import KeyboardShortcuts
 import Observation
 import DictateCore
 import ServiceManagement
+import AVFoundation
+import ApplicationServices
 import os
 
 /// Central application state coordinator.
@@ -29,6 +31,7 @@ final class AppState {
     let keychainService = KeychainService()
     let dictionaryService = DictionaryService()
     let historyService = HistoryService()
+    let updaterService = UpdaterService()
 
     // MARK: - Internal Services
     private let audioRecorder = AudioRecorderService()
@@ -41,6 +44,8 @@ final class AppState {
     private var previousFrontApp: String?
     private var hasInitialized = false
     private var audioLevelTimer: Timer?
+    private var recordingTimeoutTimer: Timer?
+    private static let maxRecordingDuration: TimeInterval = 120
 
     // MARK: - Computed
     var menuBarIconName: String {
@@ -71,6 +76,9 @@ final class AppState {
     }
 
     private func performInitialization() throws {
+        // Check accessibility permission on first launch
+        checkAccessibilityPermission()
+
         // Run Electron -> Native data migration
         MigrationService.migrateIfNeeded()
 
@@ -164,6 +172,25 @@ final class AppState {
     }
 
     private func performStartRecording() async throws {
+        // Check microphone permission
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            break // OK
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .audio)
+            guard granted else {
+                errorMessage = "マイクへのアクセスが拒否されました"
+                status = .error
+                return
+            }
+        case .denied, .restricted:
+            errorMessage = "マイクの使用が拒否されています。システム設定 > プライバシーとセキュリティ > マイク で許可してください。"
+            status = .error
+            return
+        @unknown default:
+            break
+        }
+
         // Remember frontmost app before showing overlay
         previousFrontApp = TextInputService.getFrontmostApp()
 
@@ -185,11 +212,22 @@ final class AppState {
         interimText = ""
         errorMessage = nil
 
+        // Schedule recording timeout (auto-stop after 120 seconds)
+        recordingTimeoutTimer?.invalidate()
+        recordingTimeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.maxRecordingDuration, repeats: false) { [weak self] _ in
+            guard let self, self.status == .recording else { return }
+            self.interimText += self.interimText.isEmpty ? "（録音時間上限に達しました）" : "\n（録音時間上限に達しました）"
+            self.logger.info("[AppState] Recording timeout reached (\(Self.maxRecordingDuration)s)")
+            self.stopRecording()
+        }
+
         logger.info("[AppState] Recording started")
     }
 
     func stopRecording() {
         guard status == .recording else { return }
+        recordingTimeoutTimer?.invalidate()
+        recordingTimeoutTimer = nil
         status = .processing
 
         Task { @MainActor in
@@ -264,6 +302,8 @@ final class AppState {
     func cancelRecording() {
         guard status == .recording else { return }
 
+        recordingTimeoutTimer?.invalidate()
+        recordingTimeoutTimer = nil
         audioRecorder.cancelRecording()
         deepgramService?.close()
         deepgramService = nil
@@ -274,6 +314,16 @@ final class AppState {
         overlayController.hideOverlay()
 
         logger.info("[AppState] Recording cancelled")
+    }
+
+    // MARK: - Permissions
+
+    private func checkAccessibilityPermission() {
+        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
+        let trusted = AXIsProcessTrustedWithOptions(options)
+        if !trusted {
+            logger.warning("[AppState] Accessibility permission not granted")
+        }
     }
 
     // MARK: - Deepgram Streaming
