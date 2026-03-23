@@ -39,6 +39,7 @@ final class AppState {
     // MARK: - State
     private var previousFrontApp: String?
     private var hasInitialized = false
+    private var audioLevelTimer: Timer?
 
     // MARK: - Computed
     var menuBarIconName: String {
@@ -100,19 +101,29 @@ final class AppState {
     }
 
     private func setupAudioLevelObservation() {
+        audioLevelTimer?.invalidate()
         // Poll audioRecorder.audioLevels via a timer while recording
         // AudioRecorderService publishes levels on main thread, we mirror them here
-        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        audioLevelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self, self.status == .recording else { return }
             self.audioLevels = self.audioRecorder.audioLevels
         }
+    }
+
+    private func stopAudioLevelObservation() {
+        audioLevelTimer?.invalidate()
+        audioLevelTimer = nil
     }
 
     // MARK: - Recording Lifecycle
 
     func toggleRecording() {
         switch status {
-        case .idle:
+        case .idle, .error:
+            if status == .error {
+                errorMessage = nil
+                status = .idle
+            }
             startRecording()
         case .recording:
             stopRecording()
@@ -188,6 +199,7 @@ final class AppState {
         // Stop Deepgram
         deepgramService?.close()
         deepgramService = nil
+        stopAudioLevelObservation()
 
         // Stop recording and get audio data
         let audioData = try await audioRecorder.stopRecording()
@@ -246,6 +258,7 @@ final class AppState {
         audioRecorder.cancelRecording()
         deepgramService?.close()
         deepgramService = nil
+        stopAudioLevelObservation()
 
         status = .idle
         interimText = ""

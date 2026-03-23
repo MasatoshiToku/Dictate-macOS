@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 
 struct HistoryTabView: View {
     let historyService: HistoryService

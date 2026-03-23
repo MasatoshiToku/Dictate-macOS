@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 
 struct SettingsView: View {
     let appState: AppState

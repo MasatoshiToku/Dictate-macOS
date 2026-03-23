@@ -1,4 +1,5 @@
 import Foundation
+import DictateCore
 import os
 
 // Electron -> Native data migration service

@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 
 struct APIKeyTabView: View {
     let keychainService: KeychainService

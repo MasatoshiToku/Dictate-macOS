@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 import ServiceManagement
 
 struct GeneralTabView: View {

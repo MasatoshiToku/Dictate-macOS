@@ -35,7 +35,10 @@ let package = Package(
         .executableTarget(
             name: "DictateIOS",
             dependencies: ["DictateCore"],
-            path: "DictateIOS"
+            path: "DictateIOS",
+            exclude: [
+                "Info.plist",
+            ]
         ),
         // Tests
         .testTarget(

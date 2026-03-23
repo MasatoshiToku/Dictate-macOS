@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 
 struct DictionaryTabView: View {
     let dictionaryService: DictionaryService
