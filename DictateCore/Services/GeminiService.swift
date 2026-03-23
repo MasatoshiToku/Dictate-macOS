@@ -63,12 +63,16 @@ public actor GeminiService {
     6. 音声の言語で文字起こししてください
     """
 
-    public init(apiKey: String) {
+    public init(apiKey: String, session: URLSession? = nil) {
         self.apiKey = apiKey
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 60
-        self.session = URLSession(configuration: config)
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 30
+            config.timeoutIntervalForResource = 60
+            self.session = URLSession(configuration: config)
+        }
     }
 
     // MARK: - Public API

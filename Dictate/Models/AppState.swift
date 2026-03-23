@@ -2,6 +2,7 @@ import SwiftUI
 import KeyboardShortcuts
 import Observation
 import DictateCore
+import ServiceManagement
 import os
 
 /// Central application state coordinator.
@@ -76,6 +77,14 @@ final class AppState {
         // Initialize Gemini if API key exists in Keychain
         if let apiKey = try? keychainService.retrieve(key: KeychainService.geminiKeyName) {
             GeminiServiceManager.initialize(apiKey: apiKey)
+        }
+
+        // Sync login item state with settings
+        let settings = AppSettings.load()
+        if settings.autoLaunch {
+            try? SMAppService.mainApp.register()
+        } else {
+            try? SMAppService.mainApp.unregister()
         }
 
         // Register global keyboard shortcuts

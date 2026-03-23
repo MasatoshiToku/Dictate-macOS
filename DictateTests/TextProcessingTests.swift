@@ -66,4 +66,47 @@ struct TextProcessingTests {
         #expect(TextProcessing.computeDelta(previousText: "\u{6771}\u{4EAC}", newText: "\u{6771}\u{4EAC}") == "")
         #expect(TextProcessing.computeDelta(previousText: "\u{6771}\u{4EAC}", newText: "") == "")
     }
+
+    // MARK: - Edge Cases
+
+    @Test("Handle emoji characters without breaking")
+    func emojiHandling() {
+        // Emoji should pass through without crash
+        #expect(TextProcessing.removeJapaneseSpaces("\u{1F600}\u{1F389}") == "\u{1F600}\u{1F389}")
+        // Emoji mixed with Japanese
+        #expect(TextProcessing.removeJapaneseSpaces("\u{6771}\u{4EAC} \u{1F5FC}") == "\u{6771}\u{4EAC} \u{1F5FC}")
+        // Emoji mixed with ASCII
+        #expect(TextProcessing.removeJapaneseSpaces("hello \u{1F600} world") == "hello \u{1F600} world")
+    }
+
+    @Test("Handle very long strings")
+    func veryLongString() {
+        // 10,000 character string should not hang or crash
+        let longJapanese = String(repeating: "\u{3042}", count: 5000) + " " + String(repeating: "\u{3044}", count: 5000)
+        let result = TextProcessing.removeJapaneseSpaces(longJapanese)
+        // Space between Japanese should be removed
+        #expect(!result.contains(" "))
+        #expect(result.count == 10000)
+    }
+
+    @Test("Handle whitespace-only strings")
+    func whitespaceOnly() {
+        #expect(TextProcessing.removeJapaneseSpaces("   ") == "   ")
+        #expect(TextProcessing.removeJapaneseSpaces("\t\t") == "\t\t")
+        #expect(TextProcessing.removeJapaneseSpaces("\n\n") == "\n\n")
+        // Full-width spaces should be removed
+        #expect(TextProcessing.removeJapaneseSpaces("\u{3000}\u{3000}") == "")
+    }
+
+    @Test("requiresClipboard with emoji")
+    func requiresClipboardEmoji() {
+        #expect(TextProcessing.requiresClipboard(for: "\u{1F600}") == true)
+    }
+
+    @Test("contentEquals with empty strings")
+    func contentEqualsEmpty() {
+        #expect(TextProcessing.contentEquals("", "") == true)
+        #expect(TextProcessing.contentEquals(".", "") == true)
+        #expect(TextProcessing.contentEquals("", ".") == true)
+    }
 }

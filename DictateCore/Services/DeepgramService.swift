@@ -55,7 +55,7 @@ public final class DeepgramService: @unchecked Sendable {
             "punctuate=true",
             "smart_format=true",
             "encoding=linear16",
-            "sample_rate=48000",
+            "sample_rate=16000",
             "channels=1",
         ].joined(separator: "&")
 
