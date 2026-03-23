@@ -15,6 +15,7 @@ final class DictationViewModel {
     var errorMessage: String?
     var audioLevels: [Float] = Array(repeating: 0, count: 24)
     var hasGeminiKey: Bool = false
+    var historyEntries: [TranscriptionHistoryEntry] = []
 
     private var audioRecorder: IOSAudioRecorder?
     private var deepgramService: DeepgramService?
@@ -26,6 +27,8 @@ final class DictationViewModel {
         if let apiKey = try? keychainService.retrieve(key: KeychainService.geminiKeyName) {
             GeminiServiceManager.initialize(apiKey: apiKey)
         }
+        // Load transcription history
+        historyEntries = HistoryService().getAll()
     }
 
     func toggleRecording() {
@@ -103,6 +106,7 @@ final class DictationViewModel {
 
                 let history = HistoryService()
                 history.add(originalText: text, formattedText: processed)
+                historyEntries = history.getAll()
 
                 status = .done
             } catch {

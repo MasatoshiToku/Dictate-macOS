@@ -26,6 +26,7 @@ let package = Package(
             exclude: [
                 "Info.plist",
                 "Dictate.entitlements",
+                "Resources/AppIcon.iconset",
             ],
             resources: [
                 .process("Resources"),
