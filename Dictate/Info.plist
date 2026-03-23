@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Dictate</string>
+    <key>CFBundleExecutable</key>
+    <string>Dictate</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.dictate.app</string>
+    <key>CFBundleName</key>
+    <string>Dictate</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Dictate uses the microphone to record your voice for transcription.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Dictate uses accessibility to type transcribed text into other applications.</string>
+    <key>SUPublicEDKey</key>
+    <string>PLACEHOLDER_ED25519_KEY</string>
+    <key>SUFeedURL</key>
+    <string>https://github.com/MasatoshiToku/Dictate-macOS/releases/latest/download/appcast.xml</string>
+</dict>
+</plist>
