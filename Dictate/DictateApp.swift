@@ -1,4 +1,5 @@
 import SwiftUI
+import DictateCore
 
 @main
 struct DictateApp: App {

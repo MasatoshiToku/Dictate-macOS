@@ -1,5 +1,5 @@
 import Testing
-@testable import Dictate
+@testable import DictateCore
 
 @Suite("TextProcessing")
 struct TextProcessingTests {

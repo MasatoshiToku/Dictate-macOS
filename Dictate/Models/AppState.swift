@@ -1,6 +1,7 @@
 import SwiftUI
 import KeyboardShortcuts
 import Observation
+import DictateCore
 import os
 
 /// Central application state coordinator.
@@ -125,7 +126,7 @@ final class AppState {
 
         // Check Gemini API key
         guard GeminiServiceManager.isInitialized else {
-            errorMessage = "Gemini API\u{30AD}\u{30FC}\u{304C}\u{8A2D}\u{5B9A}\u{3055}\u{308C}\u{3066}\u{3044}\u{307E}\u{305B}\u{3093}\u{3002}\u{8A2D}\u{5B9A}\u{753B}\u{9762}\u{3067}API\u{30AD}\u{30FC}\u{3092}\u{5165}\u{529B}\u{3057}\u{3066}\u{304F}\u{3060}\u{3055}\u{3044}\u{3002}"
+            errorMessage = "Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。"
             status = .error
             return
         }

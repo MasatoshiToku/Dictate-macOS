@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Dictate
+@testable import DictateCore
 
 @Suite("KeychainService")
 struct KeychainServiceTests {
