@@ -17,10 +17,15 @@ test:
 bundle: build
 	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
 	mkdir -p "$(APP_BUNDLE)/Contents/Resources"
+	mkdir -p "$(APP_BUNDLE)/Contents/Frameworks"
 	cp "$(BINARY)" "$(APP_BUNDLE)/Contents/MacOS/$(PRODUCT_NAME)"
 	cp Dictate/Info.plist "$(APP_BUNDLE)/Contents/"
-	# Copy entitlements
-	codesign --force --sign - --entitlements Dictate/Dictate.entitlements "$(APP_BUNDLE)"
+	# Copy Sparkle framework into the app bundle
+	cp -R "$(BUILD_DIR)/Sparkle.framework" "$(APP_BUNDLE)/Contents/Frameworks/"
+	# Add Frameworks rpath so the binary finds Sparkle at runtime
+	install_name_tool -add_rpath "@executable_path/../Frameworks" "$(APP_BUNDLE)/Contents/MacOS/$(PRODUCT_NAME)" 2>/dev/null || true
+	# Sign
+	codesign --force --deep --sign - --entitlements Dictate/Dictate.entitlements "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 
 install: bundle
