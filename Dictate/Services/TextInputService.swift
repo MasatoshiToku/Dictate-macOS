@@ -14,6 +14,7 @@ final class TextInputService: Sendable {
     ]
     private static let chunkSize = 50
     private static let pasteDelayNs: UInt64 = 100_000_000 // 100ms
+    private static let clipboardRestoreDelayMs: UInt64 = 500 // Delay before restoring clipboard
 
     /// Get the name of the currently frontmost application
     static func getFrontmostApp() -> String? {
@@ -50,17 +51,48 @@ final class TextInputService: Sendable {
         }
     }
 
+    /// Save current clipboard contents for later restoration
+    private func saveClipboard() -> [(NSPasteboard.PasteboardType, Data)] {
+        var saved: [(NSPasteboard.PasteboardType, Data)] = []
+        guard let items = NSPasteboard.general.pasteboardItems else { return saved }
+        for item in items {
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    saved.append((type, data))
+                }
+            }
+        }
+        return saved
+    }
+
+    /// Restore previously saved clipboard contents after a delay
+    private func restoreClipboard(_ savedItems: [(NSPasteboard.PasteboardType, Data)]) {
+        Task {
+            try? await Task.sleep(nanoseconds: Self.clipboardRestoreDelayMs * 1_000_000)
+            NSPasteboard.general.clearContents()
+            for (type, data) in savedItems {
+                NSPasteboard.general.setData(data, forType: type)
+            }
+        }
+    }
+
     /// Paste text from clipboard using Cmd+V via osascript
     func setClipboardAndPaste(_ text: String, targetApp: String? = nil) async throws {
+        let savedItems = saveClipboard()
+
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
 
         try await Task.sleep(nanoseconds: Self.pasteDelayNs)
         try runOsascript(pasteScript(targetApp: targetApp))
+
+        restoreClipboard(savedItems)
     }
 
     /// Delete N characters backwards then paste replacement
     func deleteBackwardsAndPaste(charCount: Int, newText: String, targetApp: String? = nil) async throws {
+        let savedItems = saveClipboard()
+
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(newText, forType: .string)
 
@@ -88,6 +120,8 @@ final class TextInputService: Sendable {
         script += "end tell"
 
         try runOsascript(script)
+
+        restoreClipboard(savedItems)
     }
 
     /// Check if accessibility permission is granted

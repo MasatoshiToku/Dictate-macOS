@@ -309,7 +309,34 @@ final class AudioRecorderService: ObservableObject {
         audioEngine.stop()
         DispatchQueue.main.async { [weak self] in
             self?.isRecording = false
-            self?.audioLevels = Array(repeating: 0, count: self?.barCount ?? 24)
+            self?.decayAudioLevels()
+        }
+    }
+
+    /// Smoothly decay audio levels to zero over ~300ms
+    private func decayAudioLevels() {
+        let decayFactor: Float = 0.6
+        let decayInterval: TimeInterval = 0.033 // ~30fps
+        let threshold: Float = 0.001
+
+        Timer.scheduledTimer(withTimeInterval: decayInterval, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+            var allBelowThreshold = true
+            var decayed = self.audioLevels
+            for i in 0..<decayed.count {
+                decayed[i] *= decayFactor
+                if decayed[i] > threshold {
+                    allBelowThreshold = false
+                }
+            }
+            self.audioLevels = decayed
+            if allBelowThreshold {
+                self.audioLevels = Array(repeating: 0, count: self.barCount)
+                timer.invalidate()
+            }
         }
     }
 }

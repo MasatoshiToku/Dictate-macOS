@@ -52,7 +52,7 @@ struct MenuBarView: View {
             Text("Dictate").font(.headline)
             Divider()
 
-            Button(appState.status == .recording ? "Stop Recording" : "Start Recording") {
+            Button(appState.status == .recording ? "Stop Recording (⌥Space)" : "Start Recording (⌥Space)") {
                 appState.toggleRecording()
             }
             .disabled(appState.status == .processing || appState.status == .typing)
@@ -82,6 +82,17 @@ struct MenuBarView: View {
             }
 
             Divider()
+
+            Button("About Dictate") {
+                NSApplication.shared.orderFrontStandardAboutPanel(options: [
+                    .applicationName: "Dictate",
+                    .applicationVersion: "1.0.0",
+                    .credits: NSAttributedString(
+                        string: "AI-powered voice dictation for macOS\nMIT License",
+                        attributes: [.font: NSFont.systemFont(ofSize: 11)]
+                    ),
+                ])
+            }
 
             SettingsLink {
                 Text("Settings...")
