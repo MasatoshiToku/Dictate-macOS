@@ -2,7 +2,7 @@
 
 ## Build Commands
 - `swift build` -- Build all targets (macOS)
-- `swift test` -- Run tests (72 tests, 8 suites)
+- `swift test` -- Run tests (97 tests, 9 suites)
 - `make bundle` -- Build .app bundle
 - `make install` -- Install to ~/Applications
 - `make clean` -- Clean build artifacts
