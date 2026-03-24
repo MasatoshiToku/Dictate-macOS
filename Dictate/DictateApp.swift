@@ -4,6 +4,7 @@ import DictateCore
 @main
 struct DictateApp: App {
     @State private var appState = AppState()
+    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
 
     var body: some Scene {
         MenuBarExtra {
@@ -15,6 +16,12 @@ struct DictateApp: App {
         Settings {
             SettingsView(appState: appState)
         }
+
+        Window("Welcome to Dictate", id: "onboarding") {
+            OnboardingView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 420, height: 460)
     }
 
     /// Build a template NSImage for the menu bar.

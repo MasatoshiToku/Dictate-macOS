@@ -5,9 +5,38 @@ struct OverlayView: View {
     let onCancel: () -> Void
     let onConfirm: () -> Void
 
+    @State private var recordingStartDate = Date()
+    @State private var elapsedSeconds: Int = 0
+    @State private var durationTimer: Timer?
+
+    private var formattedDuration: String {
+        let minutes = elapsedSeconds / 60
+        let seconds = elapsedSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
+
+            // Recording duration
+            if appState.isRecording {
+                Text(formattedDuration)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.bottom, 4)
+                    .onAppear {
+                        recordingStartDate = Date()
+                        elapsedSeconds = 0
+                        durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                            elapsedSeconds = Int(Date().timeIntervalSince(recordingStartDate))
+                        }
+                    }
+                    .onDisappear {
+                        durationTimer?.invalidate()
+                        durationTimer = nil
+                    }
+            }
 
             // Interim text preview
             if showInterimText {
