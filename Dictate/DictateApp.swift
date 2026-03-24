@@ -6,13 +6,41 @@ struct DictateApp: App {
     @State private var appState = AppState()
 
     var body: some Scene {
-        MenuBarExtra("Dictate", systemImage: appState.menuBarIconName) {
+        MenuBarExtra {
             MenuBarView(appState: appState)
+        } label: {
+            Image(nsImage: Self.menuBarIcon(for: appState.status))
         }
 
         Settings {
             SettingsView(appState: appState)
         }
+    }
+
+    /// Build a template NSImage for the menu bar.
+    /// Uses the custom tray-icon during idle, and SF Symbols for other states.
+    private static func menuBarIcon(for status: AppState.Status) -> NSImage {
+        let img: NSImage
+        switch status {
+        case .idle:
+            if let bundled = Bundle.module.image(forResource: "tray-icon") {
+                img = bundled
+            } else {
+                // Fallback to SF Symbol if resource not found
+                img = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictate")!
+            }
+        case .recording:
+            img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Recording")!
+        case .processing:
+            img = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Processing")!
+        case .typing:
+            img = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Typing")!
+        case .error:
+            img = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Error")!
+        }
+        img.isTemplate = true
+        img.size = NSSize(width: 18, height: 18)
+        return img
     }
 }
 
