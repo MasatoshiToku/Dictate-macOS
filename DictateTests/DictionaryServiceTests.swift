@@ -75,4 +75,45 @@ struct DictionaryServiceTests {
         let updated = service.getAll().first
         #expect(updated?.usageCount == 1)
     }
+
+    @Test("Reject empty reading")
+    func rejectEmptyReading() {
+        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
+        #expect(throws: DictionaryService.DictionaryError.self) {
+            try service.addEntry(reading: "", word: "test", category: .manual)
+        }
+    }
+
+    @Test("Reject empty word")
+    func rejectEmptyWord() {
+        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
+        #expect(throws: DictionaryService.DictionaryError.self) {
+            try service.addEntry(reading: "test", word: "", category: .manual)
+        }
+    }
+
+    @Test("Reject whitespace-only input")
+    func rejectWhitespaceOnly() {
+        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
+        #expect(throws: DictionaryService.DictionaryError.self) {
+            try service.addEntry(reading: "   ", word: "test", category: .manual)
+        }
+    }
+
+    @Test("Reject reading over 100 characters")
+    func rejectLongReading() {
+        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
+        let longString = String(repeating: "あ", count: 101)
+        #expect(throws: DictionaryService.DictionaryError.self) {
+            try service.addEntry(reading: longString, word: "test", category: .manual)
+        }
+    }
+
+    @Test("Accept reading at exactly 100 characters")
+    func acceptMaxLengthReading() throws {
+        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
+        let maxString = String(repeating: "あ", count: 100)
+        let entry = try service.addEntry(reading: maxString, word: "test", category: .manual)
+        #expect(entry.reading.count == 100)
+    }
 }

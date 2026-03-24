@@ -55,4 +55,20 @@ struct HistoryServiceTests {
         #expect(all[0].formattedText == "second")
         #expect(all[1].formattedText == "first")
     }
+
+    @Test("History is trimmed to max 1000 entries")
+    func historyLimit() {
+        let service = HistoryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-history-\(UUID().uuidString).json"))
+
+        // Add 1005 entries
+        for i in 0..<1005 {
+            service.add(originalText: "text \(i)", formattedText: "formatted \(i)")
+        }
+
+        let all = service.getAll()
+        #expect(all.count == 1000)
+
+        // The newest entries should be kept (inserted at front)
+        #expect(all.first?.formattedText == "formatted 1004")
+    }
 }
