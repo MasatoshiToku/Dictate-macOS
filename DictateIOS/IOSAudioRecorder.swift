@@ -9,10 +9,58 @@ class IOSAudioRecorder {
 
     var onAudioLevels: (([Float]) -> Void)?
     var onAudioChunk: ((Data) -> Void)?
+    var onInterrupted: (() -> Void)?
 
     private let barCount = 24
     private var chunkBuffer = Data()
     private let chunkInterval: Int = 4000 // frames per chunk (~250ms at 16kHz)
+    private var isRecording = false
+
+    init() {
+        setupInterruptionHandling()
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Audio Session Interruption
+
+    private func setupInterruptionHandling() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    @objc private func handleInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+
+        switch type {
+        case .began:
+            logger.warning("[IOSAudioRecorder] Audio session interrupted (e.g., phone call)")
+            if isRecording {
+                // Stop the engine to release audio resources
+                engine.inputNode.removeTap(onBus: 0)
+                engine.stop()
+                isRecording = false
+                // Notify the caller so it can handle the interruption in UI
+                onInterrupted?()
+            }
+        case .ended:
+            logger.info("[IOSAudioRecorder] Audio session interruption ended")
+            // Do not auto-resume -- let the user restart manually
+            // The interrupted audio would have gaps and produce bad transcription
+        @unknown default:
+            break
+        }
+    }
 
     func start() throws {
         let session = AVAudioSession.sharedInstance()
@@ -73,12 +121,14 @@ class IOSAudioRecorder {
         }
 
         try engine.start()
+        isRecording = true
         logger.info("iOS recording started")
     }
 
     func stop() async throws -> Data {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        isRecording = false
 
         // Build WAV
         let wavData = buildWAV(pcmData: audioData, sampleRate: 16000, channels: 1, bitsPerSample: 16)

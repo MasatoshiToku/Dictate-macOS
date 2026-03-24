@@ -193,7 +193,11 @@ final class AppState {
     }
 
     func startRecording() {
-        guard status == .idle else { return }
+        // Concurrent recording guard: only start from idle
+        guard status == .idle else {
+            logger.warning("[AppState] startRecording ignored: status=\(self.status.rawValue)")
+            return
+        }
 
         // Check Gemini API key
         guard GeminiServiceManager.isInitialized else {
@@ -202,12 +206,15 @@ final class AppState {
             return
         }
 
+        // Immediately transition to prevent double-trigger from rapid key presses
+        status = .recording
+
         Task { @MainActor in
             do {
                 try await performStartRecording()
             } catch {
                 logger.error("[AppState] startRecording failed: \(error.localizedDescription)")
-                errorMessage = "Recording start failed: \(error.localizedDescription)"
+                errorMessage = "録音の開始に失敗しました: \(error.localizedDescription)"
                 status = .error
                 overlayController.hideOverlay()
             }
@@ -251,7 +258,7 @@ final class AppState {
         // Start Deepgram streaming if key available
         startDeepgramIfAvailable()
 
-        status = .recording
+        // status is already .recording (set in startRecording() to prevent double-trigger)
         interimText = ""
         errorMessage = nil
 
@@ -278,7 +285,7 @@ final class AppState {
                 try await performStopRecording()
             } catch {
                 logger.error("[AppState] stopRecording failed: \(error.localizedDescription)")
-                errorMessage = "Transcription failed: \(error.localizedDescription)"
+                errorMessage = "文字起こしに失敗しました: \(error.localizedDescription)"
                 status = .idle
                 overlayController.hideOverlay()
             }

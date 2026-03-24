@@ -44,6 +44,7 @@ final class DictationViewModel {
     }
 
     func startRecording() {
+        guard status == .idle || status == .done else { return }
         guard GeminiServiceManager.isInitialized else {
             errorMessage = "Gemini APIキーを設定してください"
             return
@@ -57,6 +58,16 @@ final class DictationViewModel {
                 }
                 recorder.onAudioChunk = { [weak self] chunk in
                     self?.deepgramService?.sendAudio(chunk)
+                }
+                recorder.onInterrupted = { [weak self] in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.deepgramService?.close()
+                        self.deepgramService = nil
+                        self.audioRecorder = nil
+                        self.status = .idle
+                        self.errorMessage = "録音が中断されました（通話等）"
+                    }
                 }
 
                 try recorder.start()

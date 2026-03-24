@@ -136,7 +136,7 @@ private struct EditEntrySheet: View {
                 Button("Cancel") { onDone() }
                 Spacer()
                 Button("Save") {
-                    _ = dictionaryService.updateEntry(id: entry.id, reading: reading, word: word)
+                    _ = try? dictionaryService.updateEntry(id: entry.id, reading: reading, word: word)
                     onDone()
                 }
                 .disabled(reading.isEmpty || word.isEmpty)

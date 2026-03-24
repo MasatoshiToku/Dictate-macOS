@@ -43,17 +43,34 @@ public final class DictionaryService: @unchecked Sendable {
 
     @discardableResult
     public func addEntry(reading: String, word: String, category: DictionaryEntry.DictionaryCategory) throws -> DictionaryEntry {
+        // Input validation
+        let trimmedReading = reading.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedWord = word.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedReading.isEmpty else {
+            throw DictionaryError.emptyReading
+        }
+        guard !trimmedWord.isEmpty else {
+            throw DictionaryError.emptyWord
+        }
+        guard trimmedReading.count <= 100 else {
+            throw DictionaryError.readingTooLong
+        }
+        guard trimmedWord.count <= 100 else {
+            throw DictionaryError.wordTooLong
+        }
+
         lock.lock()
         defer { lock.unlock() }
 
-        if entries.contains(where: { $0.reading == reading && $0.word == word }) {
+        if entries.contains(where: { $0.reading == trimmedReading && $0.word == trimmedWord }) {
             throw DictionaryError.duplicateEntry
         }
 
         let entry = DictionaryEntry(
             id: UUID().uuidString,
-            reading: reading,
-            word: word,
+            reading: trimmedReading,
+            word: trimmedWord,
             category: category,
             createdAt: Date(),
             usageCount: 0
@@ -63,12 +80,24 @@ public final class DictionaryService: @unchecked Sendable {
         return entry
     }
 
-    public func updateEntry(id: String, reading: String? = nil, word: String? = nil) -> Bool {
+    public func updateEntry(id: String, reading: String? = nil, word: String? = nil) throws -> Bool {
+        // Validate inputs if provided
+        if let reading {
+            let trimmed = reading.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { throw DictionaryError.emptyReading }
+            guard trimmed.count <= 100 else { throw DictionaryError.readingTooLong }
+        }
+        if let word {
+            let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { throw DictionaryError.emptyWord }
+            guard trimmed.count <= 100 else { throw DictionaryError.wordTooLong }
+        }
+
         lock.lock()
         defer { lock.unlock() }
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return false }
-        if let reading { entries[index].reading = reading }
-        if let word { entries[index].word = word }
+        if let reading { entries[index].reading = reading.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let word { entries[index].word = word.trimmingCharacters(in: .whitespacesAndNewlines) }
         saveToDisk()
         return true
     }
@@ -133,7 +162,21 @@ public final class DictionaryService: @unchecked Sendable {
         }
     }
 
-    public enum DictionaryError: Error {
+    public enum DictionaryError: Error, LocalizedError {
         case duplicateEntry
+        case emptyReading
+        case emptyWord
+        case readingTooLong
+        case wordTooLong
+
+        public var errorDescription: String? {
+            switch self {
+            case .duplicateEntry: return "同じ読みと単語の組み合わせが既に登録されています"
+            case .emptyReading: return "読みを入力してください"
+            case .emptyWord: return "単語を入力してください"
+            case .readingTooLong: return "読みは100文字以内で入力してください"
+            case .wordTooLong: return "単語は100文字以内で入力してください"
+            }
+        }
     }
 }

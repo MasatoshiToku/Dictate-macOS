@@ -6,6 +6,7 @@ public final class HistoryService: @unchecked Sendable {
     private let storageURL: URL
     private var entries: [TranscriptionHistoryEntry] = []
     private let lock = NSLock()
+    private static let maxEntries = 1000
 
     public init(storageURL: URL? = nil) {
         self.storageURL = storageURL ?? HistoryService.defaultStorageURL()
@@ -35,6 +36,14 @@ public final class HistoryService: @unchecked Sendable {
             createdAt: Date()
         )
         entries.insert(entry, at: 0)
+
+        // Trim oldest entries to prevent unbounded growth
+        if entries.count > Self.maxEntries {
+            let removed = entries.count - Self.maxEntries
+            entries.removeLast(removed)
+            logger.info("[HistoryService] Trimmed \(removed) oldest entries (limit: \(Self.maxEntries))")
+        }
+
         saveToDisk()
     }
 
