@@ -27,16 +27,16 @@ struct DictateApp: App {
                 img = bundled
             } else {
                 // Fallback to SF Symbol if resource not found
-                img = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictate")!
+                img = NSImage(systemSymbolName: "mic", accessibilityDescription: "Dictate") ?? NSImage()
             }
         case .recording:
-            img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Recording")!
+            img = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Recording") ?? NSImage()
         case .processing:
-            img = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Processing")!
+            img = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "Processing") ?? NSImage()
         case .typing:
-            img = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Typing")!
+            img = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Typing") ?? NSImage()
         case .error:
-            img = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Error")!
+            img = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Error") ?? NSImage()
         }
         img.isTemplate = true
         img.size = NSSize(width: 18, height: 18)

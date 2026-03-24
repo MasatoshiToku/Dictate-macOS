@@ -372,7 +372,7 @@ final class AppState {
     // MARK: - Permissions
 
     private func checkAccessibilityPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         let trusted = AXIsProcessTrustedWithOptions(options)
         if !trusted {
             logger.warning("[AppState] Accessibility permission not granted")

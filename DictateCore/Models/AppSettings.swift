@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public enum RecordingMode: String, Codable, CaseIterable, Sendable {
     case toggle
@@ -64,7 +65,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
             let data = try JSONEncoder().encode(self)
             UserDefaults.standard.set(data, forKey: AppSettings.userDefaultsKey)
         } catch {
-            print("[AppSettings] Failed to save: \(error)")
+            os.Logger(subsystem: "io.dictate.app", category: "AppSettings").error("[AppSettings] save failed: \(error.localizedDescription)")
         }
     }
 }

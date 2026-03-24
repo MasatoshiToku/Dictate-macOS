@@ -59,7 +59,10 @@ public final class DeepgramService: @unchecked Sendable {
             "channels=1",
         ].joined(separator: "&")
 
-        let url = URL(string: "wss://api.deepgram.com/v1/listen?\(params)")!
+        guard let url = URL(string: "wss://api.deepgram.com/v1/listen?\(params)") else {
+            logger.error("[DeepgramService] Failed to construct WebSocket URL")
+            return
+        }
         var request = URLRequest(url: url)
         request.setValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
 
@@ -117,7 +120,7 @@ public final class DeepgramService: @unchecked Sendable {
             // Send CloseStream for graceful shutdown
             let closeMessage = try? JSONSerialization.data(withJSONObject: ["type": "CloseStream"])
             if let closeMessage {
-                task.send(.string(String(data: closeMessage, encoding: .utf8)!)) { _ in }
+                if let closeString = String(data: closeMessage, encoding: .utf8) { task.send(.string(closeString)) { _ in } }
             }
             task.cancel(with: .normalClosure, reason: nil)
         }
@@ -243,7 +246,8 @@ public final class DeepgramService: @unchecked Sendable {
     // MARK: - API Key Validation
 
     public static func validateApiKey(_ apiKey: String) async throws -> Bool {
-        var request = URLRequest(url: URL(string: "https://api.deepgram.com/v1/projects")!)
+        guard let validationURL = URL(string: "https://api.deepgram.com/v1/projects") else { return false }
+        var request = URLRequest(url: validationURL)
         request.setValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
 
         let (_, response) = try await URLSession.shared.data(for: request)

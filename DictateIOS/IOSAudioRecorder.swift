@@ -71,7 +71,9 @@ class IOSAudioRecorder {
 
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
-        let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true)!
+        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16000, channels: 1, interleaved: true) else {
+            throw NSError(domain: "IOSAudioRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to create target audio format"])
+        }
 
         let converter = AVAudioConverter(from: inputFormat, to: targetFormat)
 

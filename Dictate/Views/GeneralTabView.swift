@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 import DictateCore
 import ServiceManagement
 
@@ -70,7 +71,7 @@ struct GeneralTabView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            print("[GeneralTabView] Login item error: \(error)")
+            os.Logger(subsystem: "io.dictate.app", category: "GeneralTabView").error("[GeneralTabView] Login item error: \(error.localizedDescription)")
         }
     }
 }
