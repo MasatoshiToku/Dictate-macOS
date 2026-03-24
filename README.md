@@ -1,5 +1,7 @@
 # Dictate (macOS / iOS)
 
+![Version](https://img.shields.io/badge/version-1.0.0-orange)
+![License](https://img.shields.io/badge/license-MIT-blue)
 ![CI](https://github.com/MasatoshiToku/Dictate-macOS/actions/workflows/ci.yml/badge.svg)
 
 AI音声ディクテーションアプリ。話した内容をAIが自動でテキスト化・整形します。
