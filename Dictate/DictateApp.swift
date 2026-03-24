@@ -53,6 +53,7 @@ struct DictateApp: App {
 
 struct MenuBarView: View {
     let appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack {
@@ -121,6 +122,10 @@ struct MenuBarView: View {
         .padding(.vertical, 4)
         .task {
             appState.initialize()
+            // Auto-show onboarding on first launch
+            if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+                openWindow(id: "onboarding")
+            }
         }
     }
 }
