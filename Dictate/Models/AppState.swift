@@ -7,6 +7,11 @@ import AVFoundation
 import ApplicationServices
 import os
 
+/// Notification posted when recording mode changes in settings.
+extension Notification.Name {
+    static let recordingModeChanged = Notification.Name("io.dictate.recordingModeChanged")
+}
+
 /// Central application state coordinator.
 /// Wires all services together and manages the recording lifecycle:
 /// idle -> recording -> processing -> typing -> idle
@@ -95,15 +100,16 @@ final class AppState {
             try? SMAppService.mainApp.unregister()
         }
 
-        // Register global keyboard shortcuts
-        KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
-            self?.toggleRecording()
-        }
-        KeyboardShortcuts.onKeyUp(for: .cancelRecording) { [weak self] in
-            self?.cancelRecording()
-        }
-        KeyboardShortcuts.onKeyUp(for: .openSettings) {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        // Register global keyboard shortcuts based on current recording mode
+        registerShortcuts()
+
+        // Re-register shortcuts when recording mode changes
+        NotificationCenter.default.addObserver(
+            forName: .recordingModeChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.registerShortcuts()
         }
 
         // Wire audio recorder callbacks
@@ -115,6 +121,43 @@ final class AppState {
         setupAudioLevelObservation()
 
         logger.info("[AppState] Initialized successfully")
+    }
+
+    // MARK: - Shortcut Registration
+
+    /// Registers keyboard shortcuts based on the current recording mode.
+    /// Push-to-talk: hold key to record, release to stop.
+    /// Toggle: press once to start, press again to stop.
+    private func registerShortcuts() {
+        KeyboardShortcuts.removeAllHandlers()
+
+        let settings = AppSettings.load()
+
+        if settings.recordingMode == .pushToTalk {
+            // Push-to-talk: hold to record, release to stop
+            KeyboardShortcuts.onKeyDown(for: .toggleRecording) { [weak self] in
+                guard self?.status == .idle else { return }
+                self?.startRecording()
+            }
+            KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
+                guard self?.status == .recording else { return }
+                self?.stopRecording()
+            }
+        } else {
+            // Toggle mode: press to start, press again to stop
+            KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
+                self?.toggleRecording()
+            }
+        }
+
+        // Cancel is always key-up
+        KeyboardShortcuts.onKeyUp(for: .cancelRecording) { [weak self] in
+            self?.cancelRecording()
+        }
+
+        KeyboardShortcuts.onKeyUp(for: .openSettings) {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
     }
 
     private func setupAudioLevelObservation() {
@@ -291,6 +334,9 @@ final class AppState {
 
         lastTranscription = processedText
         status = .idle
+
+        // Play completion sound
+        NSSound(named: .init("Pop"))?.play()
 
         // Hide overlay after a brief delay
         try? await Task.sleep(for: .milliseconds(100))

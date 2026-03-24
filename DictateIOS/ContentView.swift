@@ -62,14 +62,21 @@ struct ContentView: View {
                                 .background(Color(.systemGray6))
                                 .cornerRadius(12)
 
-                            Button(action: {
-                                viewModel.copyToClipboard()
-                                triggerHaptic(.success)
-                            }) {
-                                Label("Copy", systemImage: "doc.on.doc")
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    viewModel.copyToClipboard()
+                                    triggerHaptic(.success)
+                                }) {
+                                    Label("Copy", systemImage: "doc.on.doc")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.orange)
+
+                                ShareLink(item: viewModel.transcriptionResult) {
+                                    Label("Share", systemImage: "square.and.arrow.up")
+                                }
+                                .buttonStyle(.bordered)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.orange)
                         }
                         .padding(.horizontal)
                         .transition(.move(edge: .bottom).combined(with: .opacity))

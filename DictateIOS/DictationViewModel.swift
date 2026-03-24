@@ -1,6 +1,7 @@
 #if os(iOS)
 import SwiftUI
 import AVFoundation
+import UIKit
 import DictateCore
 
 @Observable
@@ -109,6 +110,9 @@ final class DictationViewModel {
                 historyEntries = history.getAll()
 
                 status = .done
+
+                // Haptic feedback on successful transcription
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
                 errorMessage = "文字起こしに失敗しました: \(error.localizedDescription)"
                 status = .error

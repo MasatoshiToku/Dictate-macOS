@@ -12,6 +12,10 @@ struct GeneralTabView: View {
                     Text("Toggle (press once to start, once to stop)").tag(RecordingMode.toggle)
                     Text("Push-to-Talk (hold to record)").tag(RecordingMode.pushToTalk)
                 }
+                .onChange(of: settings.recordingMode) { _, _ in
+                    // Notify AppState to re-register shortcuts for new mode
+                    NotificationCenter.default.post(name: .recordingModeChanged, object: nil)
+                }
             }
 
             Section("Typing") {
