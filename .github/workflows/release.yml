@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build Release
+        run: make bundle
+
+      - name: Create DMG
+        run: |
+          mkdir -p dmg-content
+          cp -R .build/release/Dictate.app dmg-content/
+          ln -s /Applications dmg-content/Applications
+          hdiutil create -volname "Dictate" -srcfolder dmg-content -ov -format UDZO Dictate.dmg
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Dictate.dmg
+          generate_release_notes: true
