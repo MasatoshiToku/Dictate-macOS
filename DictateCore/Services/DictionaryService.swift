@@ -81,7 +81,7 @@ public final class DictionaryService: @unchecked Sendable {
             usageCount: 0
         )
         entries.append(entry)
-        saveToDisk()
+        try saveToDisk()
         return entry
     }
 
@@ -103,7 +103,7 @@ public final class DictionaryService: @unchecked Sendable {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return false }
         if let reading { entries[index].reading = reading.trimmingCharacters(in: .whitespacesAndNewlines) }
         if let word { entries[index].word = word.trimmingCharacters(in: .whitespacesAndNewlines) }
-        saveToDisk()
+        try saveToDisk()
         return true
     }
 
@@ -113,7 +113,11 @@ public final class DictionaryService: @unchecked Sendable {
         let before = entries.count
         entries.removeAll { $0.id == id }
         if entries.count < before {
-            saveToDisk()
+            do {
+                try saveToDisk()
+            } catch {
+                logger.error("[DictionaryService] deleteEntry saveToDisk: \(error.localizedDescription)")
+            }
             return true
         }
         return false
@@ -124,7 +128,11 @@ public final class DictionaryService: @unchecked Sendable {
         defer { lock.unlock() }
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         entries[index].usageCount += 1
-        saveToDisk()
+        do {
+            try saveToDisk()
+        } catch {
+            logger.error("[DictionaryService] incrementUsage saveToDisk: \(error.localizedDescription)")
+        }
     }
 
     public func getDictionaryPrompt() -> String {
@@ -158,12 +166,13 @@ public final class DictionaryService: @unchecked Sendable {
         }
     }
 
-    private func saveToDisk() {
+    private func saveToDisk() throws {
         do {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: storageURL, options: .atomic)
         } catch {
             logger.error("[DictionaryService] saveToDisk: \(error.localizedDescription)")
+            throw error
         }
     }
 

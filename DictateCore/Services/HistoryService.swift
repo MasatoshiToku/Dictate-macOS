@@ -49,7 +49,11 @@ public final class HistoryService: @unchecked Sendable {
             logger.info("[HistoryService] Trimmed \(removed) oldest entries (limit: \(Self.maxEntries))")
         }
 
-        saveToDisk()
+        do {
+            try saveToDisk()
+        } catch {
+            logger.error("[HistoryService] add saveToDisk: \(error.localizedDescription)")
+        }
     }
 
     public func search(query: String) -> [TranscriptionHistoryEntry] {
@@ -68,7 +72,11 @@ public final class HistoryService: @unchecked Sendable {
         let before = entries.count
         entries.removeAll { $0.id == id }
         if entries.count < before {
-            saveToDisk()
+            do {
+                try saveToDisk()
+            } catch {
+                logger.error("[HistoryService] deleteEntry saveToDisk: \(error.localizedDescription)")
+            }
             return true
         }
         return false
@@ -78,7 +86,11 @@ public final class HistoryService: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         entries.removeAll()
-        saveToDisk()
+        do {
+            try saveToDisk()
+        } catch {
+            logger.error("[HistoryService] deleteAll saveToDisk: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Persistence
@@ -94,12 +106,13 @@ public final class HistoryService: @unchecked Sendable {
         }
     }
 
-    private func saveToDisk() {
+    private func saveToDisk() throws {
         do {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: storageURL, options: .atomic)
         } catch {
             logger.error("[HistoryService] saveToDisk: \(error.localizedDescription)")
+            throw error
         }
     }
 }

@@ -294,7 +294,6 @@ final class AppState {
             return
         }
 
-
         // Immediately transition to prevent double-trigger from rapid key presses
         status = .recording
 
@@ -346,7 +345,6 @@ final class AppState {
             logger.warning("[AppState] Unknown microphone authorization status")
             break
         }
-
 
         // Also check accessibility permission
         let accessibilityGranted = TextInputService.checkAccessibilityPermission()

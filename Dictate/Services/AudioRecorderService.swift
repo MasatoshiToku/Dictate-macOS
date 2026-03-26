@@ -1,7 +1,7 @@
 import AVFoundation
 import DictateCore
-import Combine
 import Foundation
+import Observation
 import os
 
 // MARK: - AudioRecorderService Errors
@@ -24,12 +24,12 @@ enum AudioRecorderError: Error, LocalizedError {
 
 // MARK: - AudioRecorderService
 
-final class AudioRecorderService: ObservableObject {
+@Observable final class AudioRecorderService {
     private let logger = Logger(subsystem: "io.dictate.app", category: "AudioRecorderService")
 
-    // Published properties (updated on main thread)
-    @Published private(set) var isRecording: Bool = false
-    @Published private(set) var audioLevels: [Float] = Array(repeating: 0, count: 24)
+    // Observable properties (updated on main thread)
+    private(set) var isRecording: Bool = false
+    private(set) var audioLevels: [Float] = Array(repeating: 0, count: 24)
 
     // Audio engine
     private let audioEngine = AVAudioEngine()
