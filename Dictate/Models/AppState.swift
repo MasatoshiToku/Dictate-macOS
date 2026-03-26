@@ -29,7 +29,7 @@ final class AppState {
     var status: Status = .idle
     var errorMessage: String?
     var interimText: String = ""
-    private var confirmedInterimText: String = ""
+    var confirmedInterimText: String = "" // Internal: used by AppState extensions only
     var lastTranscription: String = ""
     var audioLevels: [Float] = Array(repeating: 0, count: 36)
 
@@ -40,21 +40,21 @@ final class AppState {
     let updaterService = UpdaterService()
 
     // MARK: - Internal Services
-    private let audioRecorder = AudioRecorderService()
-    private var deepgramService: DeepgramService?
-    private let overlayController = OverlayPanelController()
-    private let textInputService = TextInputService()
-    private let logger = Logger(subsystem: "io.dictate.app", category: "AppState")
+    let audioRecorder = AudioRecorderService() // Internal: used by AppState extensions only
+    var deepgramService: DeepgramService? // Internal: used by AppState extensions only
+    let overlayController = OverlayPanelController() // Internal: used by AppState extensions only
+    let textInputService = TextInputService() // Internal: used by AppState extensions only
+    let logger = Logger(subsystem: "io.dictate.app", category: "AppState") // Internal: used by AppState extensions only
 
     // MARK: - State
-    private var previousFrontApp: String?
+    var previousFrontApp: String? // Internal: used by AppState extensions only
     private var hasInitialized = false
-    private var audioLevelTimer: DispatchSourceTimer?
-    private var recordingTimeoutTimer: Timer?
-    private static let maxRecordingDuration: TimeInterval = 120
+    var audioLevelTimer: DispatchSourceTimer? // Internal: used by AppState extensions only
+    var recordingTimeoutTimer: Timer? // Internal: used by AppState extensions only
+    static let maxRecordingDuration: TimeInterval = 120 // Internal: used by AppState extensions only
 
     // Escape key monitors (active only during recording)
-    private var escapeMonitors: [Any] = []
+    var escapeMonitors: [Any] = [] // Internal: used by AppState extensions only
 
     // MARK: - Computed
     var menuBarIconName: String {
@@ -172,96 +172,6 @@ final class AppState {
 
     }
 
-    /// Downsample 24-bar recorder levels to 36-bar display levels (interpolated + amplified)
-    private func downsampleLevels(_ recorderLevels: [Float]) -> [Float] {
-        let displayBarCount = 36
-        let sourceBarCount = recorderLevels.count
-        guard sourceBarCount > 0 else { return [Float](repeating: 0, count: displayBarCount) }
-        var mappedLevels = [Float](repeating: 0, count: displayBarCount)
-        for i in 0..<displayBarCount {
-            // Map display bar index to source position using linear interpolation
-            let srcPos = Float(i) * Float(sourceBarCount - 1) / Float(displayBarCount - 1)
-            let lowerIdx = Int(srcPos)
-            let upperIdx = min(lowerIdx + 1, sourceBarCount - 1)
-            let frac = srcPos - Float(lowerIdx)
-            let interpolated = recorderLevels[lowerIdx] * (1.0 - frac) + recorderLevels[upperIdx] * frac
-            // Final amplification: boost levels for more dramatic visual movement
-            mappedLevels[i] = min(interpolated * 1.5, 1.0)
-        }
-        return mappedLevels
-    }
-
-    /// Start audio level observation (called when recording begins).
-    /// Uses a direct callback from AudioRecorderService (push model) as primary mechanism,
-    /// plus a DispatchSourceTimer as a reliable fallback that doesn't depend on RunLoop.
-    private func startAudioLevelObservation() {
-        stopAudioLevelObservation()
-
-        // Primary: direct callback from AudioRecorderService (called on main thread)
-        audioRecorder.onAudioLevelsUpdated = { [weak self] recorderLevels in
-            guard let self, self.status == .recording else { return }
-            let mapped = self.downsampleLevels(recorderLevels)
-            self.audioLevels = mapped
-        }
-
-        // Fallback: DispatchSourceTimer on main queue (reliable even in Swift Concurrency)
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now(), repeating: .milliseconds(33))
-        timer.setEventHandler { [weak self] in
-            guard let self, self.status == .recording else { return }
-            let recorderLevels = self.audioRecorder.audioLevels
-            let mapped = self.downsampleLevels(recorderLevels)
-            // Only update and redraw if levels actually changed (avoid redundant @Observable triggers)
-            if mapped != self.audioLevels {
-                self.audioLevels = mapped
-                // Force NSHostingView to redraw by invalidating the panel's content view
-                self.overlayController.invalidateDisplay()
-            }
-        }
-        timer.resume()
-        audioLevelTimer = timer
-    }
-
-    private func stopAudioLevelObservation() {
-        audioRecorder.onAudioLevelsUpdated = nil
-        audioLevelTimer?.cancel()
-        audioLevelTimer = nil
-    }
-
-    // MARK: - Escape Key Monitoring
-
-    /// Starts monitoring the Escape key during recording only.
-    /// Uses NSEvent monitors so the key is NOT globally consumed when not recording.
-    private func startEscapeMonitoring() {
-        stopEscapeMonitoring()
-        // Global monitor: catches Escape when another app is frontmost
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            if event.keyCode == 53 { // kVK_Escape
-                DispatchQueue.main.async { self?.cancelRecording() }
-            }
-        }) {
-            escapeMonitors.append(global)
-        }
-        // Local monitor: catches Escape when Dictate window/menu is frontmost
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            if event.keyCode == 53 {
-                DispatchQueue.main.async { self?.cancelRecording() }
-                return nil // consume the event so it doesn't propagate
-            }
-            return event
-        }) {
-            escapeMonitors.append(local)
-        }
-    }
-
-    /// Stops all Escape key monitors.
-    private func stopEscapeMonitoring() {
-        for monitor in escapeMonitors {
-            NSEvent.removeMonitor(monitor)
-        }
-        escapeMonitors.removeAll()
-    }
-
     // MARK: - Recording Lifecycle
 
     func toggleRecording() {
@@ -310,87 +220,6 @@ final class AppState {
         }
     }
 
-    private func performStartRecording() async throws {
-
-        // Capture the user's working app BEFORE any permission dialogs or overlay.
-        // This prevents capturing "Dictate" itself when mic/accessibility prompts steal focus.
-        let capturedApp = TextInputService.getFrontmostApp()
-        let selfBundleId = Bundle.main.bundleIdentifier ?? "io.dictate.app"
-        let frontmostBundleId = TextInputService.getFrontmostAppBundleId()
-
-        if let bundleId = frontmostBundleId, bundleId == selfBundleId {
-            // Frontmost app is Dictate itself -- keep previously stored app if available
-        } else {
-            previousFrontApp = capturedApp
-        }
-
-        // Check microphone permission
-        let authStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-
-        switch authStatus {
-        case .authorized:
-            break
-        case .notDetermined:
-            let granted = await AVCaptureDevice.requestAccess(for: .audio)
-            guard granted else {
-                errorMessage = "マイクへのアクセスが拒否されました"
-                status = .error
-                return
-            }
-        case .denied, .restricted:
-            errorMessage = "マイクの使用が拒否されています。システム設定 > プライバシーとセキュリティ > マイク で許可してください。"
-            status = .error
-            return
-        @unknown default:
-            logger.warning("[AppState] Unknown microphone authorization status")
-            break
-        }
-
-        // Also check accessibility permission
-        let accessibilityGranted = TextInputService.checkAccessibilityPermission()
-        if !accessibilityGranted {
-            // Request permission (shows system dialog)
-            TextInputService.requestAccessibilityPermission()
-        }
-
-        // Show overlay
-        let overlayView = OverlayView(
-            appState: self,
-            onCancel: { [weak self] in self?.cancelRecording() },
-            onConfirm: { [weak self] in self?.stopRecording() }
-        )
-        overlayController.showOverlay(content: overlayView)
-
-        // Start Escape key monitoring (recording-only; prevents system-wide Escape theft)
-        startEscapeMonitoring()
-
-        // Start audio recording
-        try audioRecorder.startRecording()
-
-        // Start audio level observation for waveform
-        startAudioLevelObservation()
-
-        // Start Deepgram streaming if key available
-        let settings = AppSettings.load()
-        startDeepgramIfAvailable(settings: settings)
-
-        // status is already .recording (set in startRecording() to prevent double-trigger)
-        interimText = ""
-        confirmedInterimText = ""
-        errorMessage = nil
-
-        // Schedule recording timeout (auto-stop after 120 seconds)
-        recordingTimeoutTimer?.invalidate()
-        recordingTimeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.maxRecordingDuration, repeats: false) { [weak self] _ in
-            guard let self, self.status == .recording else { return }
-            self.interimText += self.interimText.isEmpty ? "（録音時間上限に達しました）" : "\n（録音時間上限に達しました）"
-            self.logger.info("[AppState] Recording timeout reached (\(Self.maxRecordingDuration)s)")
-            self.stopRecording()
-        }
-
-        logger.info("[AppState] Recording started")
-    }
-
     func stopRecording() {
         guard status == .recording else {
             return
@@ -412,71 +241,6 @@ final class AppState {
         }
     }
 
-    private func performStopRecording() async throws {
-
-        // Stop Deepgram
-        deepgramService?.close()
-        deepgramService = nil
-        stopAudioLevelObservation()
-
-        // Stop recording and get audio data
-        let audioData = try await audioRecorder.stopRecording()
-
-        guard !audioData.isEmpty else {
-            logger.warning("[AppState] Empty audio data")
-            status = .idle
-            overlayController.hideOverlay()
-            return
-        }
-
-        // Transcribe with Gemini
-        guard let gemini = GeminiServiceManager.shared else {
-            errorMessage = "Gemini APIキーが設定されていません"
-            status = .error
-            overlayController.hideOverlay()
-            return
-        }
-        let dictionaryPrompt = dictionaryService.getDictionaryPrompt()
-        let text = try await gemini.transcribeAudio(
-            audioData: audioData,
-            mimeType: "audio/wav",
-            dictionaryPrompt: dictionaryPrompt
-        )
-
-        guard !text.isEmpty else {
-            logger.info("[AppState] No speech detected")
-            status = .idle
-            overlayController.hideOverlay()
-            return
-        }
-
-        // Process text (remove unnecessary spaces in Japanese)
-        let processedText = TextProcessing.removeJapaneseSpaces(text)
-
-        // Save to history
-        historyService.add(originalText: text, formattedText: processedText)
-
-        // Hide overlay before typing so the target app is fully focused
-        overlayController.hideOverlay()
-
-        // Type text into the previous app
-        status = .typing
-        let settings = AppSettings.load()
-        try await textInputService.typeText(
-            processedText,
-            speed: settings.typingSpeed,
-            targetApp: previousFrontApp
-        )
-
-        lastTranscription = processedText
-        status = .idle
-
-        // Play completion sound
-        NSSound(named: .init("Pop"))?.play()
-
-        logger.info("[AppState] Transcription complete (\(processedText.count) chars)")
-    }
-
     func cancelRecording() {
         guard status == .recording else { return }
 
@@ -496,51 +260,4 @@ final class AppState {
         logger.info("[AppState] Recording cancelled")
     }
 
-    // MARK: - Permissions
-
-    private func checkAccessibilityPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
-        if !trusted {
-            logger.warning("[AppState] Accessibility permission not granted")
-        }
-    }
-
-    // MARK: - Deepgram Streaming
-
-    private func startDeepgramIfAvailable(settings: AppSettings) {
-        guard let apiKey = try? keychainService.retrieve(key: KeychainService.deepgramKeyName) else {
-            return
-        }
-
-        let language = settings.language.rawValue
-
-        let service = DeepgramService()
-        service.onTranscript = { [weak self] transcript in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if transcript.isFinal {
-                    // Append confirmed text to accumulated buffer
-                    if !self.confirmedInterimText.isEmpty {
-                        self.confirmedInterimText += " "
-                    }
-                    self.confirmedInterimText += transcript.text
-                    self.interimText = self.confirmedInterimText
-                } else {
-                    // Show accumulated confirmed text + latest partial result
-                    if self.confirmedInterimText.isEmpty {
-                        self.interimText = transcript.text
-                    } else {
-                        self.interimText = self.confirmedInterimText + " " + transcript.text
-                    }
-                }
-            }
-        }
-        service.onError = { [weak self] error in
-            self?.logger.error("[AppState] Deepgram error: \(error.localizedDescription)")
-        }
-
-        service.connect(apiKey: apiKey, language: language)
-        deepgramService = service
-    }
 }

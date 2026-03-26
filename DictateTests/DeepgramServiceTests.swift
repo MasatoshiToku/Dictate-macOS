@@ -8,23 +8,25 @@ struct DeepgramServiceTests {
     // MARK: - Connection State Tests
 
     @Test("New service should not be connected")
-    func initialStateNotConnected() {
+    func initialStateNotConnected() async {
         let service = DeepgramService()
-        #expect(!service.connectedStatus)
+        #expect(await !service.connectedStatus)
     }
 
     @Test("Close on disconnected service should not crash")
-    func closeOnDisconnected() {
+    func closeOnDisconnected() async {
         let service = DeepgramService()
         // Should be safe to call close() even when not connected
         service.close()
-        #expect(!service.connectedStatus)
+        // Give the Task a chance to run
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(await !service.connectedStatus)
     }
 
     // MARK: - Callback Configuration Tests
 
     @Test("Callbacks should be settable")
-    func callbacksSettable() {
+    func callbacksSettable() async {
         let service = DeepgramService()
 
         var transcriptReceived = false
@@ -66,20 +68,23 @@ struct DeepgramServiceTests {
     // MARK: - Reconnection State Tests
 
     @Test("Multiple close calls should be safe")
-    func multipleCloseCallsSafe() {
+    func multipleCloseCallsSafe() async {
         let service = DeepgramService()
         service.close()
         service.close()
         service.close()
-        #expect(!service.connectedStatus)
+        // Give the Tasks a chance to run
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(await !service.connectedStatus)
     }
 
     @Test("Send audio on disconnected service should not crash")
-    func sendAudioDisconnected() {
+    func sendAudioDisconnected() async {
         let service = DeepgramService()
         let testData = Data([0x00, 0x01, 0x02, 0x03])
         // Should silently return without crashing
         service.sendAudio(testData)
-        #expect(!service.connectedStatus)
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        #expect(await !service.connectedStatus)
     }
 }

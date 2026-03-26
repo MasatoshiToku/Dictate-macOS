@@ -141,7 +141,7 @@ final class DictationViewModel {
         service.onTranscript = { [weak self] transcript in
             DispatchQueue.main.async { self?.interimText = transcript.text }
         }
-        service.connect(apiKey: apiKey, language: "ja")
+        Task { await service.connect(apiKey: apiKey, language: "ja") }
         deepgramService = service
     }
 }

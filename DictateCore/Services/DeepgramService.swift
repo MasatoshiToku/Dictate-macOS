@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-public final class DeepgramService: @unchecked Sendable {
+public actor DeepgramService {
     private let logger = Logger(subsystem: "io.dictate.app", category: "DeepgramService")
 
     public struct Transcript {
@@ -14,15 +14,14 @@ public final class DeepgramService: @unchecked Sendable {
         }
     }
 
-    public var onTranscript: ((Transcript) -> Void)?
-    public var onError: ((Error) -> Void)?
-    public var onClose: (() -> Void)?
+    nonisolated(unsafe) public var onTranscript: ((Transcript) -> Void)?
+    nonisolated(unsafe) public var onError: ((Error) -> Void)?
+    nonisolated(unsafe) public var onClose: (() -> Void)?
 
     private let session = URLSession(configuration: .default)
     private var webSocketTask: URLSessionWebSocketTask?
     private var keepAliveTimer: Timer?
     private var pendingChunks: [Data] = []
-    private let lock = NSLock()
     private var isConnected = false
 
     // Reconnection state
@@ -36,14 +35,12 @@ public final class DeepgramService: @unchecked Sendable {
     public init() {}
 
     public func connect(apiKey: String, language: String = "ja") {
-        lock.lock()
         teardownConnection()
         pendingChunks.removeAll()
         currentApiKey = apiKey
         currentLanguage = language
         shouldReconnect = true
         reconnectAttempts = 0
-        lock.unlock()
 
         performConnect(apiKey: apiKey, language: language)
     }
@@ -78,25 +75,25 @@ public final class DeepgramService: @unchecked Sendable {
 
         // Flush pending chunks after short delay for connection
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.flushPendingChunks()
-            self?.startKeepAlive()
+            guard let self else { return }
+            Task { await self.flushPendingChunks() }
+            Task { await self.startKeepAlive() }
         }
 
-        lock.lock()
         isConnected = true
-        lock.unlock()
     }
 
-    public func sendAudio(_ data: Data) {
-        lock.lock()
-        defer { lock.unlock() }
+    public nonisolated func sendAudio(_ data: Data) {
+        Task { await self.enqueueSendAudio(data) }
+    }
 
+    private func enqueueSendAudio(_ data: Data) {
         guard let task = webSocketTask else { return }
 
         if task.state == .running {
             task.send(.data(data)) { [weak self] error in
                 if let error {
-                    self?.logger.error("[DeepgramService] send error: \(error.localizedDescription)")
+                    Task { await self?.handleSendError(error) }
                 }
             }
         } else {
@@ -105,12 +102,18 @@ public final class DeepgramService: @unchecked Sendable {
         }
     }
 
-    public func close() {
-        lock.lock()
+    private func handleSendError(_ error: Error) {
+        logger.error("[DeepgramService] send error: \(error.localizedDescription)")
+    }
+
+    public nonisolated func close() {
+        Task { await self.performClose() }
+    }
+
+    private func performClose() {
         shouldReconnect = false
         reconnectAttempts = 0
         teardownConnection()
-        lock.unlock()
     }
 
     private func teardownConnection() {
@@ -130,22 +133,18 @@ public final class DeepgramService: @unchecked Sendable {
     }
 
     public var connectedStatus: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return isConnected
+        isConnected
     }
 
     // MARK: - Reconnection
 
     private func attemptReconnect() {
-        lock.lock()
         guard shouldReconnect,
               reconnectAttempts < Self.maxReconnectAttempts,
               let apiKey = currentApiKey,
               let language = currentLanguage else {
             let attempts = reconnectAttempts
             let shouldRC = shouldReconnect
-            lock.unlock()
             logger.warning("[DeepgramService] Reconnect skipped: shouldReconnect=\(shouldRC), attempts=\(attempts)")
             if attempts >= Self.maxReconnectAttempts {
                 onError?(NSError(domain: "DeepgramService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Max reconnection attempts reached"]))
@@ -154,33 +153,27 @@ public final class DeepgramService: @unchecked Sendable {
         }
         let attempt = reconnectAttempts
         reconnectAttempts += 1
-        lock.unlock()
 
         let delay = Self.reconnectDelays[safe: attempt] ?? 2.0
         logger.info("[DeepgramService] Reconnecting in \(delay)s (attempt \(attempt + 1)/\(Self.maxReconnectAttempts))")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self else { return }
-            self.lock.lock()
-            guard self.shouldReconnect else {
-                self.lock.unlock()
-                return
+            Task {
+                guard await self.shouldReconnect else { return }
+                await self.performConnect(apiKey: apiKey, language: language)
             }
-            self.lock.unlock()
-            self.performConnect(apiKey: apiKey, language: language)
         }
     }
 
     // MARK: - Private
 
     private func flushPendingChunks() {
-        lock.lock()
         let chunks = pendingChunks
         pendingChunks.removeAll()
-        lock.unlock()
 
         for chunk in chunks {
-            sendAudio(chunk)
+            enqueueSendAudio(chunk)
         }
         if !chunks.isEmpty {
             logger.info("[DeepgramService] Flushed \(chunks.count) pending chunks")
@@ -189,10 +182,17 @@ public final class DeepgramService: @unchecked Sendable {
 
     private func startKeepAlive() {
         keepAliveTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-            guard let self, let task = self.webSocketTask, task.state == .running else { return }
-            let keepAlive = "{\"type\":\"KeepAlive\"}"
-            task.send(.string(keepAlive)) { _ in }
+            guard let self else { return }
+            Task {
+                await self.sendKeepAlive()
+            }
         }
+    }
+
+    private func sendKeepAlive() {
+        guard let task = webSocketTask, task.state == .running else { return }
+        let keepAlive = "{\"type\":\"KeepAlive\"}"
+        task.send(.string(keepAlive)) { _ in }
     }
 
     private func receiveMessage() {
@@ -202,28 +202,32 @@ public final class DeepgramService: @unchecked Sendable {
             case .success(let message):
                 switch message {
                 case .string(let text):
-                    self.handleMessage(text)
+                    Task { await self.handleMessage(text) }
                 case .data(let data):
                     if let text = String(data: data, encoding: .utf8) {
-                        self.handleMessage(text)
+                        Task { await self.handleMessage(text) }
                     }
                 @unknown default:
                     break
                 }
                 // Continue receiving
-                self.receiveMessage()
+                Task { await self.receiveMessage() }
 
             case .failure(let error):
-                self.logger.error("[DeepgramService] receive error: \(error.localizedDescription)")
-                self.lock.lock()
-                self.isConnected = false
-                self.lock.unlock()
-                self.onError?(error)
-
-                // Attempt reconnection if still recording
-                self.attemptReconnect()
+                Task {
+                    await self.handleReceiveError(error)
+                }
             }
         }
+    }
+
+    private func handleReceiveError(_ error: Error) {
+        logger.error("[DeepgramService] receive error: \(error.localizedDescription)")
+        isConnected = false
+        onError?(error)
+
+        // Attempt reconnection if still recording
+        attemptReconnect()
     }
 
     private func handleMessage(_ text: String) {
