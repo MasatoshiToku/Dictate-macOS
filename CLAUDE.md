@@ -2,7 +2,7 @@
 
 ## Build Commands
 - `swift build` -- Build all targets (macOS)
-- `swift test` -- Run tests (97 tests, 9 suites)
+- `swift test` -- Run tests (104 tests, 10 suites)
 - `make bundle` -- Build .app bundle
 - `make install` -- Install to ~/Applications
 - `make clean` -- Clean build artifacts
@@ -20,7 +20,11 @@
 
 ### Dictate (macOS app)
 - `DictateApp` -- Menu bar app entry point with onboarding window
-- `AppState` -- Central state coordinator (idle -> recording -> processing -> typing -> idle)
+- `AppState` -- Central state coordinator (idle -> recording -> processing -> typing -> idle), split across extension files:
+  - `AppState` — Core state + shortcuts (263 lines)
+  - `AppState+Recording` — Recording lifecycle (231 lines)
+  - `AppState+AudioLevels` — Audio level management
+  - `AppState+Permissions` — Permission checks
 - Views: `OverlayView` (recording overlay with waveform + duration timer), `SettingsView` (tabs: General, API Keys, Shortcuts, Dictionary, History), `OnboardingView` (first-launch setup)
 - Components: `WaveformView`, `StatusDotsView`
 - Services: `AudioRecorderService`, `TextInputService`, `OverlayPanelController`, `MigrationService`, `UpdaterService`
@@ -38,6 +42,11 @@
 - Custom dictionary support for specialized vocabulary correction
 - Auto-update via Sparkle framework
 - First-launch onboarding window for API key setup
+- `DeepgramService` implemented as `actor` for thread-safe WebSocket state management
+- `TranscriptionServiceProtocol` introduced for DI (enables mock injection in tests)
+- Gemini API key is sent via `x-goog-api-key` HTTP header (not query param)
+- Escape key during recording is handled by NSEvent global monitor (not KeyboardShortcuts) to avoid conflicts
+- `AudioRecorderService` unified to `@Observable` (removed legacy ObservableObject conformance)
 
 ## Notes
 - SourceKit shows false positives for cross-module types -- `swift build` is the truth
@@ -46,3 +55,4 @@
 - Recording overlay shows real-time waveform, interim transcript, and elapsed duration
 - Push-to-talk and toggle recording modes supported
 - Electron -> Native migration handled by MigrationService
+- `KeychainService` currently stores data in UserDefaults (plaintext) -- migration to Keychain required after proper code signing
