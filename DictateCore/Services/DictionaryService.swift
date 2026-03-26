@@ -13,7 +13,12 @@ public final class DictionaryService: @unchecked Sendable {
     }
 
     private static func defaultStorageURL() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            // Fallback to temporary directory
+            let tmpDir = FileManager.default.temporaryDirectory.appendingPathComponent("Dictate", isDirectory: true)
+            try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+            return tmpDir.appendingPathComponent("dictionary.json")
+        }
         let dictateDir = appSupport.appendingPathComponent("Dictate", isDirectory: true)
         try? FileManager.default.createDirectory(at: dictateDir, withIntermediateDirectories: true)
         return dictateDir.appendingPathComponent("dictionary.json")

@@ -78,6 +78,8 @@ final class AppState {
             try performInitialization()
         } catch {
             logger.error("[AppState] initialize failed: \(error.localizedDescription)")
+            errorMessage = "初期化に失敗しました: \(error.localizedDescription)"
+            status = .error
         }
     }
 
@@ -381,7 +383,12 @@ final class AppState {
         }
 
         // Transcribe with Gemini
-        let gemini = GeminiServiceManager.shared
+        guard let gemini = GeminiServiceManager.shared else {
+            errorMessage = "Gemini APIキーが設定されていません"
+            status = .error
+            overlayController.hideOverlay()
+            return
+        }
         let dictionaryPrompt = dictionaryService.getDictionaryPrompt()
         let text = try await gemini.transcribeAudio(
             audioData: audioData,
@@ -420,7 +427,7 @@ final class AppState {
         // Play completion sound
         NSSound(named: .init("Pop"))?.play()
 
-        logger.info("[AppState] Transcription complete: \(processedText.prefix(50))...")
+        logger.info("[AppState] Transcription complete (\(processedText.count) chars)")
     }
 
     func cancelRecording() {

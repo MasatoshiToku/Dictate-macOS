@@ -22,14 +22,11 @@ public final class GeminiServiceManager: Sendable {
         _shared = GeminiService(apiKey: apiKey)
     }
 
-    /// Get the shared GeminiService instance. Crashes if not initialized.
-    public static var shared: GeminiService {
+    /// Get the shared GeminiService instance. Returns nil if not initialized.
+    public static var shared: GeminiService? {
         lock.lock()
         defer { lock.unlock() }
-        guard let service = _shared else {
-            fatalError("[GeminiServiceManager] GeminiService not initialized. Call initialize(apiKey:) first.")
-        }
-        return service
+        return _shared
     }
 
     /// Check if the service has been initialized

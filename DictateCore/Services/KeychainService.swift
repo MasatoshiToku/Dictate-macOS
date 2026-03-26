@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-/// API key storage using UserDefaults.
+/// API key storage using UserDefaults (plaintext). WARNING: Keys are stored unencrypted in ~/Library/Preferences/. Consider migrating to Keychain with proper code signing for production use.
 /// Replaces Keychain to avoid password prompts with ad-hoc signed apps.
 public final class KeychainService: Sendable {
     private let logger = Logger(subsystem: "io.dictate.app", category: "KeychainService")
@@ -59,16 +59,12 @@ public final class KeychainService: Sendable {
 
     public enum KeychainError: Error, LocalizedError {
         case encodingFailed
-        case saveFailed(status: OSStatus)
         case notFound
-        case deleteFailed(status: OSStatus)
 
         public var errorDescription: String? {
             switch self {
             case .encodingFailed: return "Failed to encode value"
-            case .saveFailed(let status): return "Save failed (OSStatus: \(status))"
             case .notFound: return "Key not found"
-            case .deleteFailed(let status): return "Delete failed (OSStatus: \(status))"
             }
         }
     }

@@ -145,6 +145,7 @@ public actor GeminiService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.timeoutInterval = timeout
 
         let body = buildRequestBody(audioData: audioData, mimeType: mimeType, dictionaryPrompt: dictionaryPrompt)
@@ -170,7 +171,7 @@ public actor GeminiService {
         guard !apiKey.isEmpty else {
             throw GeminiError.invalidAPIKey
         }
-        guard let url = URL(string: "\(endpoint)?key=\(apiKey)") else {
+        guard let url = URL(string: endpoint) else {
             throw GeminiError.invalidAPIKey
         }
         return url
