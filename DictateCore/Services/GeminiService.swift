@@ -103,7 +103,7 @@ public actor GeminiService {
                     throw error
                 }
 
-                // Exponential backoff: 1s, 2s, 3s
+                // Linear backoff: 1s, 2s, 3s
                 if attempt < maxRetries - 1 {
                     let delay = baseRetryDelay * Double(attempt + 1)
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))

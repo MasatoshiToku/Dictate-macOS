@@ -41,7 +41,7 @@ struct DeepgramServiceTests {
     @Test("New service should not be connected")
     func initialStateNotConnected() {
         let service = DeepgramService()
-        #expect(!service.getIsConnected())
+        #expect(!service.connectedStatus)
     }
 
     @Test("Close on disconnected service should not crash")
@@ -49,7 +49,7 @@ struct DeepgramServiceTests {
         let service = DeepgramService()
         // Should be safe to call close() even when not connected
         service.close()
-        #expect(!service.getIsConnected())
+        #expect(!service.connectedStatus)
     }
 
     // MARK: - Callback Configuration Tests
@@ -102,7 +102,7 @@ struct DeepgramServiceTests {
         service.close()
         service.close()
         service.close()
-        #expect(!service.getIsConnected())
+        #expect(!service.connectedStatus)
     }
 
     @Test("Send audio on disconnected service should not crash")
@@ -111,6 +111,6 @@ struct DeepgramServiceTests {
         let testData = Data([0x00, 0x01, 0x02, 0x03])
         // Should silently return without crashing
         service.sendAudio(testData)
-        #expect(!service.getIsConnected())
+        #expect(!service.connectedStatus)
     }
 }

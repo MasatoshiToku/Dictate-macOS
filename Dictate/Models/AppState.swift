@@ -203,12 +203,12 @@ final class AppState {
             guard let self, self.status == .recording else { return }
             let recorderLevels = self.audioRecorder.audioLevels
             let mapped = self.downsampleLevels(recorderLevels)
-            // Only update if levels actually changed (avoid redundant @Observable triggers)
+            // Only update and redraw if levels actually changed (avoid redundant @Observable triggers)
             if mapped != self.audioLevels {
                 self.audioLevels = mapped
+                // Force NSHostingView to redraw by invalidating the panel's content view
+                self.overlayController.invalidateDisplay()
             }
-            // Force NSHostingView to redraw by invalidating the panel's content view
-            self.overlayController.invalidateDisplay()
         }
         timer.resume()
         audioLevelTimer = timer
@@ -326,7 +326,8 @@ final class AppState {
         startAudioLevelObservation()
 
         // Start Deepgram streaming if key available
-        startDeepgramIfAvailable()
+        let settings = AppSettings.load()
+        startDeepgramIfAvailable(settings: settings)
 
         // status is already .recording (set in startRecording() to prevent double-trigger)
         interimText = ""
@@ -460,12 +461,11 @@ final class AppState {
 
     // MARK: - Deepgram Streaming
 
-    private func startDeepgramIfAvailable() {
+    private func startDeepgramIfAvailable(settings: AppSettings) {
         guard let apiKey = try? keychainService.retrieve(key: KeychainService.deepgramKeyName) else {
             return
         }
 
-        let settings = AppSettings.load()
         let language = settings.language.rawValue
 
         let service = DeepgramService()

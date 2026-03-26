@@ -280,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func showAbout() {
         NSApplication.shared.orderFrontStandardAboutPanel(options: [
             .applicationName: "Dictate",
-            .applicationVersion: "1.0.0",
+            .applicationVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
             .credits: NSAttributedString(
                 string: "AI-powered voice dictation for macOS\nMIT License",
                 attributes: [.font: NSFont.systemFont(ofSize: 11)]

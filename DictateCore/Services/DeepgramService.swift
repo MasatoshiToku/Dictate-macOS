@@ -18,6 +18,7 @@ public final class DeepgramService: @unchecked Sendable {
     public var onError: ((Error) -> Void)?
     public var onClose: (() -> Void)?
 
+    private let session = URLSession(configuration: .default)
     private var webSocketTask: URLSessionWebSocketTask?
     private var keepAliveTimer: Timer?
     private var pendingChunks: [Data] = []
@@ -36,7 +37,7 @@ public final class DeepgramService: @unchecked Sendable {
 
     public func connect(apiKey: String, language: String = "ja") {
         lock.lock()
-        close_internal()
+        teardownConnection()
         pendingChunks.removeAll()
         currentApiKey = apiKey
         currentLanguage = language
@@ -66,8 +67,7 @@ public final class DeepgramService: @unchecked Sendable {
         var request = URLRequest(url: url)
         request.setValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
 
-        let session = URLSession(configuration: .default)
-        webSocketTask = session.webSocketTask(with: request)
+        webSocketTask = self.session.webSocketTask(with: request)
         webSocketTask?.resume()
 
         logger.info("[DeepgramService] Connecting...")
@@ -108,11 +108,11 @@ public final class DeepgramService: @unchecked Sendable {
         lock.lock()
         shouldReconnect = false
         reconnectAttempts = 0
-        close_internal()
+        teardownConnection()
         lock.unlock()
     }
 
-    private func close_internal() {
+    private func teardownConnection() {
         keepAliveTimer?.invalidate()
         keepAliveTimer = nil
 
@@ -128,7 +128,7 @@ public final class DeepgramService: @unchecked Sendable {
         isConnected = false
     }
 
-    public func getIsConnected() -> Bool {
+    public var connectedStatus: Bool {
         lock.lock()
         defer { lock.unlock() }
         return isConnected
