@@ -2,9 +2,12 @@ import SwiftUI
 import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
-    static let toggleRecording = Self("toggleRecording")
-    static let cancelRecording = Self("cancelRecording")
-    static let openSettings = Self("openSettings")
+    // Default: Option + Space for toggle recording
+    static let toggleRecording = Self("toggleRecording", default: .init(.space, modifiers: .option))
+    // Default: Escape for cancel recording
+    static let cancelRecording = Self("cancelRecording", default: .init(.escape, modifiers: []))
+    // Default: Option + Comma for open settings
+    static let openSettings = Self("openSettings", default: .init(.comma, modifiers: .option))
 }
 
 struct ShortcutsTabView: View {

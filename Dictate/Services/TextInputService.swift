@@ -16,14 +16,26 @@ final class TextInputService: Sendable {
     private static let pasteDelayNs: UInt64 = 100_000_000 // 100ms
     private static let clipboardRestoreDelayMs: UInt64 = 500 // Delay before restoring clipboard
 
-    /// Get the name of the currently frontmost application
+    /// Get the name of the currently frontmost application (process name for System Events)
     static func getFrontmostApp() -> String? {
-        return NSWorkspace.shared.frontmostApplication?.localizedName
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            return nil
+        }
+        let processName = app.localizedName
+        return processName
+    }
+
+    /// Get the bundle identifier of the currently frontmost application
+    static func getFrontmostAppBundleId() -> String? {
+        return NSWorkspace.shared.frontmostApplication?.bundleIdentifier
     }
 
     /// Type text into the currently focused application
     func typeText(_ text: String, speed: TypingSpeed = .fast, targetApp: String? = nil) async throws {
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty else {
+            return
+        }
+
 
         if TextProcessing.requiresClipboard(for: text) {
             try await setClipboardAndPaste(text, targetApp: targetApp)
@@ -78,15 +90,37 @@ final class TextInputService: Sendable {
 
     /// Paste text from clipboard using Cmd+V via osascript
     func setClipboardAndPaste(_ text: String, targetApp: String? = nil) async throws {
+
         let savedItems = saveClipboard()
 
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
 
+        // Activate target app before pasting
+        if let app = targetApp {
+            activateApp(named: app)
+            // Wait for app activation
+            try await Task.sleep(nanoseconds: 200_000_000) // 200ms
+        }
+
         try await Task.sleep(nanoseconds: Self.pasteDelayNs)
-        try runOsascript(pasteScript(targetApp: targetApp))
+
+        let script = pasteScript(targetApp: targetApp)
+        do {
+            try runOsascript(script)
+        } catch {
+            throw error
+        }
 
         restoreClipboard(savedItems)
+    }
+
+    /// Activate an application by name using NSWorkspace
+    private func activateApp(named appName: String) {
+        let runningApps = NSWorkspace.shared.runningApplications
+        if let app = runningApps.first(where: { $0.localizedName == appName }) {
+            app.activate()
+        }
     }
 
     /// Delete N characters backwards then paste replacement

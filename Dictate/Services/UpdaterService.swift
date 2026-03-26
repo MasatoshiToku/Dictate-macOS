@@ -10,7 +10,7 @@ final class UpdaterService {
         // Initialize Sparkle updater
         // The SPUStandardUpdaterController reads SUFeedURL and SUPublicEDKey from Info.plist
         self.updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
+            startingUpdater: false,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )

@@ -29,8 +29,9 @@ final class AppState {
     var status: Status = .idle
     var errorMessage: String?
     var interimText: String = ""
+    private var confirmedInterimText: String = ""
     var lastTranscription: String = ""
-    var audioLevels: [Float] = Array(repeating: 0, count: 24)
+    var audioLevels: [Float] = Array(repeating: 0, count: 36)
 
     // MARK: - Services (exposed for SettingsView)
     let keychainService = KeychainService()
@@ -48,7 +49,7 @@ final class AppState {
     // MARK: - State
     private var previousFrontApp: String?
     private var hasInitialized = false
-    private var audioLevelTimer: Timer?
+    private var audioLevelTimer: DispatchSourceTimer?
     private var recordingTimeoutTimer: Timer?
     private static let maxRecordingDuration: TimeInterval = 120
 
@@ -90,6 +91,7 @@ final class AppState {
         // Initialize Gemini if API key exists in Keychain
         if let apiKey = try? keychainService.retrieve(key: KeychainService.geminiKeyName) {
             GeminiServiceManager.initialize(apiKey: apiKey)
+        } else {
         }
 
         // Sync login item state with settings
@@ -117,9 +119,6 @@ final class AppState {
             self?.deepgramService?.sendAudio(chunk)
         }
 
-        // Observe audio levels from recorder via Combine
-        setupAudioLevelObservation()
-
         logger.info("[AppState] Initialized successfully")
     }
 
@@ -136,7 +135,9 @@ final class AppState {
         if settings.recordingMode == .pushToTalk {
             // Push-to-talk: hold to record, release to stop
             KeyboardShortcuts.onKeyDown(for: .toggleRecording) { [weak self] in
-                guard self?.status == .idle else { return }
+                guard self?.status == .idle else {
+                    return
+                }
                 self?.startRecording()
             }
             KeyboardShortcuts.onKeyUp(for: .toggleRecording) { [weak self] in
@@ -158,20 +159,62 @@ final class AppState {
         KeyboardShortcuts.onKeyUp(for: .openSettings) {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
+
     }
 
-    private func setupAudioLevelObservation() {
-        audioLevelTimer?.invalidate()
-        // Poll audioRecorder.audioLevels via a timer while recording
-        // AudioRecorderService publishes levels on main thread, we mirror them here
-        audioLevelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self, self.status == .recording else { return }
-            self.audioLevels = self.audioRecorder.audioLevels
+    /// Downsample 24-bar recorder levels to 36-bar display levels (interpolated + amplified)
+    private func downsampleLevels(_ recorderLevels: [Float]) -> [Float] {
+        let displayBarCount = 36
+        let sourceBarCount = recorderLevels.count
+        guard sourceBarCount > 0 else { return [Float](repeating: 0, count: displayBarCount) }
+        var mappedLevels = [Float](repeating: 0, count: displayBarCount)
+        for i in 0..<displayBarCount {
+            // Map display bar index to source position using linear interpolation
+            let srcPos = Float(i) * Float(sourceBarCount - 1) / Float(displayBarCount - 1)
+            let lowerIdx = Int(srcPos)
+            let upperIdx = min(lowerIdx + 1, sourceBarCount - 1)
+            let frac = srcPos - Float(lowerIdx)
+            let interpolated = recorderLevels[lowerIdx] * (1.0 - frac) + recorderLevels[upperIdx] * frac
+            // Final amplification: boost levels for more dramatic visual movement
+            mappedLevels[i] = min(interpolated * 1.5, 1.0)
         }
+        return mappedLevels
+    }
+
+    /// Start audio level observation (called when recording begins).
+    /// Uses a direct callback from AudioRecorderService (push model) as primary mechanism,
+    /// plus a DispatchSourceTimer as a reliable fallback that doesn't depend on RunLoop.
+    private func startAudioLevelObservation() {
+        stopAudioLevelObservation()
+
+        // Primary: direct callback from AudioRecorderService (called on main thread)
+        audioRecorder.onAudioLevelsUpdated = { [weak self] recorderLevels in
+            guard let self, self.status == .recording else { return }
+            let mapped = self.downsampleLevels(recorderLevels)
+            self.audioLevels = mapped
+        }
+
+        // Fallback: DispatchSourceTimer on main queue (reliable even in Swift Concurrency)
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now(), repeating: .milliseconds(33))
+        timer.setEventHandler { [weak self] in
+            guard let self, self.status == .recording else { return }
+            let recorderLevels = self.audioRecorder.audioLevels
+            let mapped = self.downsampleLevels(recorderLevels)
+            // Only update if levels actually changed (avoid redundant @Observable triggers)
+            if mapped != self.audioLevels {
+                self.audioLevels = mapped
+            }
+            // Force NSHostingView to redraw by invalidating the panel's content view
+            self.overlayController.invalidateDisplay()
+        }
+        timer.resume()
+        audioLevelTimer = timer
     }
 
     private func stopAudioLevelObservation() {
-        audioLevelTimer?.invalidate()
+        audioRecorder.onAudioLevelsUpdated = nil
+        audioLevelTimer?.cancel()
         audioLevelTimer = nil
     }
 
@@ -193,6 +236,7 @@ final class AppState {
     }
 
     func startRecording() {
+
         // Concurrent recording guard: only start from idle
         guard status == .idle else {
             logger.warning("[AppState] startRecording ignored: status=\(self.status.rawValue)")
@@ -205,6 +249,7 @@ final class AppState {
             status = .error
             return
         }
+
 
         // Immediately transition to prevent double-trigger from rapid key presses
         status = .recording
@@ -222,10 +267,25 @@ final class AppState {
     }
 
     private func performStartRecording() async throws {
+
+        // Capture the user's working app BEFORE any permission dialogs or overlay.
+        // This prevents capturing "Dictate" itself when mic/accessibility prompts steal focus.
+        let capturedApp = TextInputService.getFrontmostApp()
+        let selfBundleId = Bundle.main.bundleIdentifier ?? "io.dictate.app"
+        let frontmostBundleId = TextInputService.getFrontmostAppBundleId()
+
+        if let bundleId = frontmostBundleId, bundleId == selfBundleId {
+            // Frontmost app is Dictate itself -- keep previously stored app if available
+        } else {
+            previousFrontApp = capturedApp
+        }
+
         // Check microphone permission
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        let authStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+
+        switch authStatus {
         case .authorized:
-            break // OK
+            break
         case .notDetermined:
             let granted = await AVCaptureDevice.requestAccess(for: .audio)
             guard granted else {
@@ -241,8 +301,13 @@ final class AppState {
             break
         }
 
-        // Remember frontmost app before showing overlay
-        previousFrontApp = TextInputService.getFrontmostApp()
+
+        // Also check accessibility permission
+        let accessibilityGranted = TextInputService.checkAccessibilityPermission()
+        if !accessibilityGranted {
+            // Request permission (shows system dialog)
+            TextInputService.requestAccessibilityPermission()
+        }
 
         // Show overlay
         let overlayView = OverlayView(
@@ -255,11 +320,15 @@ final class AppState {
         // Start audio recording
         try audioRecorder.startRecording()
 
+        // Start audio level observation for waveform
+        startAudioLevelObservation()
+
         // Start Deepgram streaming if key available
         startDeepgramIfAvailable()
 
         // status is already .recording (set in startRecording() to prevent double-trigger)
         interimText = ""
+        confirmedInterimText = ""
         errorMessage = nil
 
         // Schedule recording timeout (auto-stop after 120 seconds)
@@ -275,7 +344,9 @@ final class AppState {
     }
 
     func stopRecording() {
-        guard status == .recording else { return }
+        guard status == .recording else {
+            return
+        }
         recordingTimeoutTimer?.invalidate()
         recordingTimeoutTimer = nil
         status = .processing
@@ -293,6 +364,7 @@ final class AppState {
     }
 
     private func performStopRecording() async throws {
+
         // Stop Deepgram
         deepgramService?.close()
         deepgramService = nil
@@ -330,6 +402,9 @@ final class AppState {
         // Save to history
         historyService.add(originalText: text, formattedText: processedText)
 
+        // Hide overlay before typing so the target app is fully focused
+        overlayController.hideOverlay()
+
         // Type text into the previous app
         status = .typing
         let settings = AppSettings.load()
@@ -344,10 +419,6 @@ final class AppState {
 
         // Play completion sound
         NSSound(named: .init("Pop"))?.play()
-
-        // Hide overlay after a brief delay
-        try? await Task.sleep(for: .milliseconds(100))
-        overlayController.hideOverlay()
 
         logger.info("[AppState] Transcription complete: \(processedText.prefix(50))...")
     }
@@ -364,6 +435,7 @@ final class AppState {
 
         status = .idle
         interimText = ""
+        confirmedInterimText = ""
         overlayController.hideOverlay()
 
         logger.info("[AppState] Recording cancelled")
@@ -382,7 +454,9 @@ final class AppState {
     // MARK: - Deepgram Streaming
 
     private func startDeepgramIfAvailable() {
-        guard let apiKey = try? keychainService.retrieve(key: KeychainService.deepgramKeyName) else { return }
+        guard let apiKey = try? keychainService.retrieve(key: KeychainService.deepgramKeyName) else {
+            return
+        }
 
         let settings = AppSettings.load()
         let language = settings.language.rawValue
@@ -392,13 +466,19 @@ final class AppState {
             DispatchQueue.main.async {
                 guard let self else { return }
                 if transcript.isFinal {
-                    if !self.interimText.isEmpty {
-                        self.interimText += " "
+                    // Append confirmed text to accumulated buffer
+                    if !self.confirmedInterimText.isEmpty {
+                        self.confirmedInterimText += " "
                     }
-                    self.interimText += transcript.text
+                    self.confirmedInterimText += transcript.text
+                    self.interimText = self.confirmedInterimText
                 } else {
-                    // Show interim (latest partial result)
-                    self.interimText = transcript.text
+                    // Show accumulated confirmed text + latest partial result
+                    if self.confirmedInterimText.isEmpty {
+                        self.interimText = transcript.text
+                    } else {
+                        self.interimText = self.confirmedInterimText + " " + transcript.text
+                    }
                 }
             }
         }

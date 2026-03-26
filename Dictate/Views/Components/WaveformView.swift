@@ -3,33 +3,57 @@ import SwiftUI
 struct WaveformView: View {
     let levels: [Float]
     let isRecording: Bool
-    let barCount: Int = 24
+    let barCount: Int = 36
 
-    // Bell curve weights -- bars in the center are taller for visual appeal
+    // Breathing animation state for idle/quiet moments
+    @State private var breathingPhase: Double = 0
+
+    // Flatter bell curve (sigma 3.0) so ALL bars move significantly
     private var bellCurve: [Float] {
         (0..<barCount).map { i in
             let x = Float(i) / Float(barCount - 1) * 2.0 - 1.0
-            return exp(-x * x * 2.0)
+            return exp(-x * x / (2.0 * 3.0 * 3.0)) // sigma = 3.0
         }
     }
 
+    // Check if audio is effectively silent
+    private var isQuiet: Bool {
+        levels.allSatisfy { $0 < 0.05 }
+    }
+
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(0..<min(levels.count, barCount), id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
+                RoundedRectangle(cornerRadius: 1.5)
                     .fill(isRecording ? Color(nsColor: .systemYellow) : Color.white.opacity(0.18))
-                    .frame(width: 2, height: barHeight(for: i))
-                    .animation(.easeOut(duration: 0.075), value: levels[i])
+                    .frame(width: 3, height: barHeight(for: i))
+                    .animation(.easeOut(duration: 0.05), value: levels[i])
+                    .animation(.easeInOut(duration: 1.2), value: breathingPhase)
             }
         }
-        .frame(height: 32)
+        .frame(height: 46)
+        .onAppear {
+            // Start breathing animation loop
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                breathingPhase = 1.0
+            }
+        }
     }
 
     private func barHeight(for index: Int) -> CGFloat {
         let level = index < levels.count ? levels[index] : 0
         let weight = index < bellCurve.count ? bellCurve[index] : 0.5
-        let minHeight: CGFloat = 3
-        let maxHeight: CGFloat = 28
+        let minHeight: CGFloat = 2
+        let maxHeight: CGFloat = 42
+
+        // When recording but quiet, show gentle breathing sine wave
+        if isRecording && isQuiet {
+            let phase = breathingPhase
+            let sineOffset = sin(Double(index) * 0.4 + phase * .pi * 2.0)
+            let breathHeight = minHeight + CGFloat(sineOffset + 1.0) * 3.0 * CGFloat(weight)
+            return max(minHeight, min(maxHeight, breathHeight))
+        }
+
         let height = minHeight + CGFloat(level * weight) * (maxHeight - minHeight)
         return max(minHeight, min(maxHeight, height))
     }

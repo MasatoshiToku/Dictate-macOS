@@ -21,6 +21,8 @@ bundle: build
 	cp "$(BINARY)" "$(APP_BUNDLE)/Contents/MacOS/$(PRODUCT_NAME)"
 	cp Dictate/Info.plist "$(APP_BUNDLE)/Contents/"
 	cp Dictate/Resources/icon.icns "$(APP_BUNDLE)/Contents/Resources/AppIcon.icns" 2>/dev/null || true
+	# Copy SPM resource bundle into Resources (for Bundle.module fallback)
+	cp -R "$(BUILD_DIR)/Dictate_Dictate.bundle" "$(APP_BUNDLE)/Contents/Resources/" 2>/dev/null || true
 	# Copy Sparkle framework into the app bundle
 	cp -R "$(BUILD_DIR)/Sparkle.framework" "$(APP_BUNDLE)/Contents/Frameworks/"
 	# Add Frameworks rpath so the binary finds Sparkle at runtime

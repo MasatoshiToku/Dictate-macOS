@@ -5,65 +5,44 @@ struct OverlayView: View {
     let onCancel: () -> Void
     let onConfirm: () -> Void
 
-    @State private var recordingStartDate = Date()
-    @State private var elapsedSeconds: Int = 0
-    @State private var durationTimer: Timer?
-
-    private var formattedDuration: String {
-        let minutes = elapsedSeconds / 60
-        let seconds = elapsedSeconds % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
+    // Overlay size
+    private let overlayWidth: CGFloat = 280
+    private let overlayHeight: CGFloat = 200
 
     var body: some View {
         VStack(spacing: 0) {
+            // Interim text area (shown when available during recording/processing)
+            if (appState.isRecording || appState.isProcessing) && !appState.interimText.isEmpty {
+                ScrollView {
+                    Text(appState.interimText)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.85))
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: overlayWidth - 28, alignment: .leading)
+                }
+                .frame(maxWidth: overlayWidth - 20, maxHeight: overlayHeight - 60, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.black.opacity(0.7))
+                )
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+            }
+
             Spacer()
 
-            // Recording duration
-            if appState.isRecording {
-                Text(formattedDuration)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
-                    .padding(.bottom, 4)
-                    .onAppear {
-                        recordingStartDate = Date()
-                        elapsedSeconds = 0
-                        durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-                            elapsedSeconds = Int(Date().timeIntervalSince(recordingStartDate))
-                        }
-                    }
-                    .onDisappear {
-                        durationTimer?.invalidate()
-                        durationTimer = nil
-                    }
-            }
-
-            // Interim text preview
-            if showInterimText {
-                Text(appState.interimText)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.75))
-                    .lineLimit(6)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .frame(maxWidth: 480, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.black.opacity(0.93))
-                    )
-                    .padding(.bottom, 6)
-            }
-
-            // Waveform bar with controls
-            HStack(spacing: 12) {
+            // Control bar: [X] [waveform] [stop]
+            HStack(spacing: 8) {
                 // Cancel button
                 Button(action: onCancel) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
                 }
                 .buttonStyle(.plain)
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .background(Circle().fill(Color.white.opacity(0.1)))
 
                 // Waveform or status dots
@@ -78,28 +57,24 @@ struct OverlayView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                // Confirm/Stop button
+                // Stop button
                 Button(action: onConfirm) {
                     Image(systemName: appState.isRecording ? "stop.fill" : "checkmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(appState.isRecording ? .yellow : .white.opacity(0.12))
                 }
                 .buttonStyle(.plain)
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .background(Circle().fill(Color.white.opacity(0.1)))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(Color.black.opacity(0.85))
             )
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
         }
-        .frame(width: 500, height: 200)
-    }
-
-    private var showInterimText: Bool {
-        (appState.isRecording || appState.isProcessing) && !appState.interimText.isEmpty
+        .frame(width: overlayWidth, height: overlayHeight)
     }
 }

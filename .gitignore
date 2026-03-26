@@ -6,3 +6,8 @@ DerivedData/
 .DS_Store
 SUMMARY-*.md
 Dictate/Models/AppState.swift.bak
+
+# Environment variables
+.env
+.env.*
+.env.local

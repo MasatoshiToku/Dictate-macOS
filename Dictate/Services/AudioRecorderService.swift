@@ -42,7 +42,10 @@ final class AudioRecorderService: ObservableObject {
 
     // Waveform visualization
     private let barCount = 24
-    private let smoothingFactor: Float = 0.3 // Exponential decay smoothing
+    private let smoothingFactor: Float = 0.7 // Very responsive smoothing (0.7 new + 0.3 old)
+
+    // Callback for real-time audio level updates (called on main thread with 24-bar levels)
+    var onAudioLevelsUpdated: (([Float]) -> Void)?
 
     // Streaming chunks for Deepgram
     var onAudioChunk: ((Data) -> Void)?
@@ -206,10 +209,12 @@ final class AudioRecorderService: ObservableObject {
                 let sample = channelData[j]
                 sum += sample * sample
             }
-            newLevels[i] = sqrt(sum / Float(end - start))
+            let rms = sqrt(sum / Float(end - start))
+            // Aggressive amplification for dramatic waveform movement
+            newLevels[i] = min(rms * 8.0, 1.0)
         }
 
-        // Apply exponential smoothing on main thread
+        // Apply exponential smoothing on main thread (0.5 new + 0.5 old for responsiveness)
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             var smoothed = self.audioLevels
@@ -222,6 +227,8 @@ final class AudioRecorderService: ObservableObject {
                 }
             }
             self.audioLevels = smoothed
+            // Notify AppState directly (push model, no polling needed)
+            self.onAudioLevelsUpdated?(smoothed)
         }
     }
 

@@ -7,6 +7,7 @@ struct OnboardingView: View {
     @State private var geminiKey = ""
     @State private var keyValid = false
     @State private var validating = false
+    @State private var errorText: String?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -47,6 +48,12 @@ struct OnboardingView: View {
                     }
                 }
 
+                if let errorText {
+                    Text(errorText)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+
                 Button("保存して開始") {
                     saveAndStart()
                 }
@@ -72,11 +79,14 @@ struct OnboardingView: View {
 
     private func saveAndStart() {
         validating = true
+        errorText = nil
         Task {
             do {
                 let keychainService = KeychainService()
                 try keychainService.save(key: KeychainService.geminiKeyName, value: geminiKey)
+
                 GeminiServiceManager.initialize(apiKey: geminiKey)
+
                 keyValid = true
                 validating = false
 
@@ -84,9 +94,20 @@ struct OnboardingView: View {
                 UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
 
                 try? await Task.sleep(for: .milliseconds(500))
-                dismiss()
+
+                // Close the onboarding window via NSApp
+                await MainActor.run {
+                    // Find and close the onboarding window
+                    for window in NSApp.windows {
+                        if window.title == "Welcome to Dictate" {
+                            window.close()
+                            break
+                        }
+                    }
+                }
             } catch {
                 validating = false
+                errorText = "保存に失敗しました: \(error.localizedDescription)"
             }
         }
     }
