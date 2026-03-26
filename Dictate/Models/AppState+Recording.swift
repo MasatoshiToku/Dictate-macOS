@@ -108,15 +108,15 @@ extension AppState {
             return
         }
 
-        // Transcribe with Gemini
-        guard let gemini = GeminiServiceManager.shared else {
+        // Transcribe with Gemini via injected TranscriptionService
+        guard let service = transcriptionService else {
             errorMessage = "Gemini APIキーが設定されていません"
             status = .error
             overlayController.hideOverlay()
             return
         }
         let dictionaryPrompt = dictionaryService.getDictionaryPrompt()
-        let text = try await gemini.transcribeAudio(
+        let text = try await service.transcribeAudio(
             audioData: audioData,
             mimeType: "audio/wav",
             dictionaryPrompt: dictionaryPrompt

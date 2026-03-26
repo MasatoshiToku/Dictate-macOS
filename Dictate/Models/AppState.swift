@@ -42,6 +42,7 @@ final class AppState {
     // MARK: - Internal Services
     let audioRecorder = AudioRecorderService() // Internal: used by AppState extensions only
     var deepgramService: DeepgramService? // Internal: used by AppState extensions only
+    var transcriptionService: (any TranscriptionService)? // Internal: used by AppState extensions only
     let overlayController = OverlayPanelController() // Internal: used by AppState extensions only
     let textInputService = TextInputService() // Internal: used by AppState extensions only
     let logger = Logger(subsystem: "io.dictate.app", category: "AppState") // Internal: used by AppState extensions only
@@ -96,6 +97,7 @@ final class AppState {
         // Initialize Gemini if API key exists in Keychain
         if let apiKey = try? keychainService.retrieve(key: KeychainService.geminiKeyName) {
             GeminiServiceManager.initialize(apiKey: apiKey)
+            transcriptionService = GeminiServiceManager.shared
         }
 
         // Sync login item state with settings
@@ -198,7 +200,7 @@ final class AppState {
         }
 
         // Check Gemini API key
-        guard GeminiServiceManager.isInitialized else {
+        guard transcriptionService != nil else {
             errorMessage = "Gemini APIキーが設定されていません。設定画面でAPIキーを入力してください。"
             status = .error
             return

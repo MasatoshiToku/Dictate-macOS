@@ -14,7 +14,7 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             TabView {
-                APIKeyTabView(keychainService: appState.keychainService)
+                APIKeyTabView(appState: appState, keychainService: appState.keychainService)
                     .tabItem { Label("API Keys", systemImage: "key") }
 
                 GeneralTabView(settings: $settings)

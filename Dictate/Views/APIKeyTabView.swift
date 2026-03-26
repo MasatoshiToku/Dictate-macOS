@@ -2,6 +2,7 @@ import SwiftUI
 import DictateCore
 
 struct APIKeyTabView: View {
+    let appState: AppState
     let keychainService: KeychainService
     @State private var geminiKey = ""
     @State private var deepgramKey = ""
@@ -158,6 +159,7 @@ struct APIKeyTabView: View {
             do {
                 try keychainService.save(key: KeychainService.geminiKeyName, value: key)
                 GeminiServiceManager.initialize(apiKey: key)
+                appState.transcriptionService = GeminiServiceManager.shared
                 geminiMasked = KeychainService.maskApiKey(key)
                 geminiStatus = .saved
                 showGeminiKey = false

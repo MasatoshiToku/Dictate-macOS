@@ -31,7 +31,7 @@ public enum GeminiError: Error, LocalizedError {
 
 // MARK: - GeminiService
 
-public actor GeminiService {
+public actor GeminiService: TranscriptionService {
     private let logger = Logger(subsystem: "io.dictate.app", category: "GeminiService")
     private let apiKey: String
     private let session: URLSession
