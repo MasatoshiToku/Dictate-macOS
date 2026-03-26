@@ -46,4 +46,24 @@ struct KeychainServiceTests {
         // "123456789" = 9 chars -> prefix(4) + 1 masked + suffix(4)
         #expect(KeychainService.maskApiKey("123456789") == "1234\u{25CF}6789")
     }
+
+    @Test("getMaskedValue returns nil for missing key")
+    func getMaskedValueMissing() {
+        // Use unique service name to avoid collision
+        let service = KeychainService(serviceName: "test-\(UUID())")
+        #expect(service.getMaskedValue(key: "nonexistent") == nil)
+    }
+
+    @Test("getMaskedValue returns masked value for existing key")
+    func getMaskedValueExists() throws {
+        let service = KeychainService(serviceName: "test-\(UUID())")
+        try service.save(key: "api-key", value: "sk-1234567890abcdef")
+        let masked = service.getMaskedValue(key: "api-key")
+        #expect(masked != nil)
+        #expect(masked?.hasPrefix("sk-1") == true)
+        #expect(masked?.hasSuffix("cdef") == true)
+        #expect(masked?.contains("\u{25CF}") == true)
+        // Cleanup
+        try? service.delete(key: "api-key")
+    }
 }

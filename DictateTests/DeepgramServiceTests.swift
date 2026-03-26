@@ -5,37 +5,6 @@ import Foundation
 @Suite("DeepgramService")
 struct DeepgramServiceTests {
 
-    // MARK: - URL Parameter Tests
-
-    @Test("WebSocket URL should contain all required parameters")
-    func urlContainsRequiredParams() {
-        // Verify the expected parameter strings match key=value format
-        let expectedParams = [
-            "model=nova-3",
-            "interim_results=true",
-            "punctuate=true",
-            "smart_format=true",
-            "sample_rate=16000",
-            "encoding=linear16",
-            "channels=1",
-        ]
-
-        let baseURL = "wss://api.deepgram.com/v1/listen"
-        let reconstructedURL = baseURL + "?" + expectedParams.joined(separator: "&") + "&language=ja"
-
-        for param in expectedParams {
-            #expect(reconstructedURL.contains(param), "URL should contain \(param)")
-        }
-        #expect(reconstructedURL.hasPrefix("wss://"), "URL should use wss:// scheme")
-    }
-
-    @Test("Sample rate should be 16000 Hz")
-    func sampleRateIs16000() {
-        // DeepgramService uses 16kHz to match AudioRecorderService's capture format
-        let sampleRateParam = "sample_rate=16000"
-        #expect(sampleRateParam.contains("16000"))
-    }
-
     // MARK: - Connection State Tests
 
     @Test("New service should not be connected")

@@ -18,15 +18,52 @@ struct DictionaryServiceTests {
         #expect(all[0].id == entry.id)
     }
 
-    @Test("Duplicate entry prevention")
-    func duplicatePrevention() throws {
-        let service = DictionaryService(storageURL: FileManager.default.temporaryDirectory.appendingPathComponent("test-dict-\(UUID().uuidString).json"))
-        _ = try service.addEntry(reading: "とうきょう", word: "東京", category: .manual)
-        do {
-            _ = try service.addEntry(reading: "とうきょう", word: "東京", category: .manual)
-            Issue.record("Should have thrown duplicate error")
-        } catch {
-            // Expected
+    @Test("getByCategory filters correctly")
+    func getByCategory() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("dict-cat-\(UUID()).json")
+        let service = DictionaryService(storageURL: url)
+        try service.addEntry(reading: "てすと", word: "テスト", category: .manual)
+        try service.addEntry(reading: "じどう", word: "自動", category: .auto)
+
+        let manual = service.getByCategory(.manual)
+        #expect(manual.count == 1)
+        #expect(manual.first?.word == "テスト")
+
+        let auto = service.getByCategory(.auto)
+        #expect(auto.count == 1)
+        #expect(auto.first?.word == "自動")
+    }
+
+    @Test("updateEntry modifies reading and word")
+    func updateEntry() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("dict-upd-\(UUID()).json")
+        let service = DictionaryService(storageURL: url)
+        let entry = try service.addEntry(reading: "old", word: "OLD", category: .manual)
+
+        let updated = try service.updateEntry(id: entry.id, reading: "new", word: "NEW")
+        #expect(updated == true)
+
+        let all = service.getAll()
+        #expect(all.first?.reading == "new")
+        #expect(all.first?.word == "NEW")
+    }
+
+    @Test("updateEntry returns false for nonexistent id")
+    func updateEntryNotFound() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("dict-upd-nf-\(UUID()).json")
+        let service = DictionaryService(storageURL: url)
+        let result = try service.updateEntry(id: "nonexistent", reading: "x")
+        #expect(result == false)
+    }
+
+    @Test("duplicate entry throws duplicateEntry error")
+    func duplicateThrowsCorrectError() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("dict-dup-\(UUID()).json")
+        let service = DictionaryService(storageURL: url)
+        try service.addEntry(reading: "test", word: "Test", category: .manual)
+
+        #expect(throws: DictionaryService.DictionaryError.duplicateEntry) {
+            try service.addEntry(reading: "test", word: "Test", category: .manual)
         }
     }
 
