@@ -51,7 +51,7 @@ final class AppState {
     var previousFrontApp: String? // Internal: used by AppState extensions only
     private var hasInitialized = false
     var audioLevelTimer: DispatchSourceTimer? // Internal: used by AppState extensions only
-    var recordingTimeoutTimer: Timer? // Internal: used by AppState extensions only
+    var recordingTimeoutTimer: DispatchSourceTimer? // Internal: used by AppState extensions only
     static let maxRecordingDuration: TimeInterval = 120 // Internal: used by AppState extensions only
 
     // Escape key monitors (active only during recording)
@@ -226,7 +226,7 @@ final class AppState {
         guard status == .recording else {
             return
         }
-        recordingTimeoutTimer?.invalidate()
+        recordingTimeoutTimer?.cancel()
         recordingTimeoutTimer = nil
         status = .processing
         stopEscapeMonitoring()
@@ -246,7 +246,7 @@ final class AppState {
     func cancelRecording() {
         guard status == .recording else { return }
 
-        recordingTimeoutTimer?.invalidate()
+        recordingTimeoutTimer?.cancel()
         recordingTimeoutTimer = nil
         stopEscapeMonitoring()
         audioRecorder.cancelRecording()

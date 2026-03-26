@@ -6,7 +6,7 @@ import os
 public final class KeychainService: Sendable {
     private let logger = Logger(subsystem: "io.dictate.app", category: "KeychainService")
     public let serviceName: String
-    private let defaults: UserDefaults
+    nonisolated(unsafe) private let defaults: UserDefaults
 
     public static let geminiKeyName = "gemini-api-key"
     public static let deepgramKeyName = "deepgram-api-key"

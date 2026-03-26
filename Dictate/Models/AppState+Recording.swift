@@ -79,13 +79,17 @@ extension AppState {
         errorMessage = nil
 
         // Schedule recording timeout (auto-stop after 120 seconds)
-        recordingTimeoutTimer?.invalidate()
-        recordingTimeoutTimer = Timer.scheduledTimer(withTimeInterval: Self.maxRecordingDuration, repeats: false) { [weak self] _ in
+        recordingTimeoutTimer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + Self.maxRecordingDuration)
+        timer.setEventHandler { [weak self] in
             guard let self, self.status == .recording else { return }
             self.interimText += self.interimText.isEmpty ? "（録音時間上限に達しました）" : "\n（録音時間上限に達しました）"
             self.logger.info("[AppState] Recording timeout reached (\(Self.maxRecordingDuration)s)")
             self.stopRecording()
         }
+        timer.resume()
+        recordingTimeoutTimer = timer
 
         logger.info("[AppState] Recording started")
     }
