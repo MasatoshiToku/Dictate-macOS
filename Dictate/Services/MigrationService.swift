@@ -26,7 +26,11 @@ enum MigrationService {
         }
 
         // Ensure native directory exists
-        try? fileManager.createDirectory(at: nativeDir, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(at: nativeDir, withIntermediateDirectories: true)
+        } catch {
+            logger.error("[MigrationService] Failed to create directory at \(nativeDir.path): \(error.localizedDescription)")
+        }
 
         migrateDictionary(from: electronDir, to: nativeDir)
         migrateHistory(from: electronDir, to: nativeDir)

@@ -62,6 +62,7 @@ public final class DeepgramService: @unchecked Sendable {
 
         guard let url = URL(string: "wss://api.deepgram.com/v1/listen?\(params)") else {
             logger.error("[DeepgramService] Failed to construct WebSocket URL")
+            onError?(NSError(domain: "DeepgramService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to construct WebSocket URL"]))
             return
         }
         var request = URLRequest(url: url)
@@ -142,8 +143,13 @@ public final class DeepgramService: @unchecked Sendable {
               reconnectAttempts < Self.maxReconnectAttempts,
               let apiKey = currentApiKey,
               let language = currentLanguage else {
+            let attempts = reconnectAttempts
+            let shouldRC = shouldReconnect
             lock.unlock()
-            logger.warning("[DeepgramService] Reconnect skipped: shouldReconnect=\(self.shouldReconnect), attempts=\(self.reconnectAttempts)")
+            logger.warning("[DeepgramService] Reconnect skipped: shouldReconnect=\(shouldRC), attempts=\(attempts)")
+            if attempts >= Self.maxReconnectAttempts {
+                onError?(NSError(domain: "DeepgramService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Max reconnection attempts reached"]))
+            }
             return
         }
         let attempt = reconnectAttempts

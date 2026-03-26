@@ -109,6 +109,7 @@ final class TextInputService: Sendable {
         do {
             try runOsascript(script)
         } catch {
+            logger.error("[TextInput] Paste via osascript failed: \(error.localizedDescription)")
             throw error
         }
 

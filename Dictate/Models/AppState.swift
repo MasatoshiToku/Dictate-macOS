@@ -301,6 +301,7 @@ final class AppState {
             status = .error
             return
         @unknown default:
+            logger.warning("[AppState] Unknown microphone authorization status")
             break
         }
 
