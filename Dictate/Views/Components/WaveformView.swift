@@ -9,11 +9,10 @@ struct WaveformView: View {
     @State private var breathingPhase: Double = 0
 
     // Flatter bell curve (sigma 3.0) so ALL bars move significantly
-    private var bellCurve: [Float] {
-        (0..<barCount).map { i in
-            let x = Float(i) / Float(barCount - 1) * 2.0 - 1.0
-            return exp(-x * x / (2.0 * 3.0 * 3.0)) // sigma = 3.0
-        }
+    // Computed once as a static constant to avoid 36 exp() calls per frame (~720/sec at 20fps)
+    private static let bellCurve: [Float] = (0..<36).map { i in
+        let x = Float(i) / Float(36 - 1) * 2.0 - 1.0
+        return exp(-x * x / (2.0 * 3.0 * 3.0)) // sigma = 3.0
     }
 
     // Check if audio is effectively silent
@@ -27,10 +26,10 @@ struct WaveformView: View {
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(isRecording ? Color(nsColor: .systemYellow) : Color.white.opacity(0.18))
                     .frame(width: 3, height: barHeight(for: i))
-                    .animation(.easeOut(duration: 0.05), value: levels[i])
                     .animation(.easeInOut(duration: 1.2), value: breathingPhase)
             }
         }
+        .animation(.easeOut(duration: 0.05), value: levels)
         .frame(height: 46)
         .onAppear {
             // Start breathing animation loop
@@ -42,7 +41,7 @@ struct WaveformView: View {
 
     private func barHeight(for index: Int) -> CGFloat {
         let level = index < levels.count ? levels[index] : 0
-        let weight = index < bellCurve.count ? bellCurve[index] : 0.5
+        let weight = index < Self.bellCurve.count ? Self.bellCurve[index] : 0.5
         let minHeight: CGFloat = 2
         let maxHeight: CGFloat = 42
 

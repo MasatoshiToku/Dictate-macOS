@@ -1,13 +1,20 @@
 import AppKit
 import SwiftUI
 
+/// Shared size constants for the recording overlay panel.
+/// Single source of truth used by both OverlayPanel and OverlayView.
+enum OverlayConstants {
+    static let width: CGFloat = 280
+    static let height: CGFloat = 200
+}
+
 /// Non-activating floating panel for recording overlay.
 /// Does not steal focus from the target application.
 final class OverlayPanel: NSPanel {
     init() {
-        // Fixed compact overlay size
-        let overlayWidth: CGFloat = 280
-        let overlayHeight: CGFloat = 200
+        // Fixed compact overlay size — values defined in OverlayConstants
+        let overlayWidth = OverlayConstants.width
+        let overlayHeight = OverlayConstants.height
 
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: overlayWidth, height: overlayHeight),

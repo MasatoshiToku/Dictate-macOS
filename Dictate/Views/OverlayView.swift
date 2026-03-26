@@ -5,9 +5,9 @@ struct OverlayView: View {
     let onCancel: () -> Void
     let onConfirm: () -> Void
 
-    // Overlay size
-    private let overlayWidth: CGFloat = 280
-    private let overlayHeight: CGFloat = 200
+    // Overlay size — values defined in OverlayConstants (OverlayPanel.swift)
+    private let overlayWidth = OverlayConstants.width
+    private let overlayHeight = OverlayConstants.height
 
     var body: some View {
         VStack(spacing: 0) {

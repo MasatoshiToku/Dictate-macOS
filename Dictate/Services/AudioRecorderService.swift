@@ -57,7 +57,7 @@ final class AudioRecorderService: ObservableObject {
     private let tempFileURL: URL
 
     init() {
-        self.chunkIntervalSamples = Int(16000 * 0.25) // 250ms at 16kHz
+        self.chunkIntervalSamples = Int(targetSampleRate * 0.25) // 250ms at target sample rate
         self.tempFileURL = FileManager.default.temporaryDirectory.appendingPathComponent("dictate-recording.wav")
     }
 
@@ -214,7 +214,7 @@ final class AudioRecorderService: ObservableObject {
             newLevels[i] = min(rms * 8.0, 1.0)
         }
 
-        // Apply exponential smoothing on main thread (0.5 new + 0.5 old for responsiveness)
+        // Apply exponential smoothing on main thread (0.7 new + 0.3 old for responsiveness)
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             var smoothed = self.audioLevels

@@ -93,15 +93,16 @@ final class AppState {
         // Initialize Gemini if API key exists in Keychain
         if let apiKey = try? keychainService.retrieve(key: KeychainService.geminiKeyName) {
             GeminiServiceManager.initialize(apiKey: apiKey)
-        } else {
         }
 
         // Sync login item state with settings
         let settings = AppSettings.load()
         if settings.autoLaunch {
-            try? SMAppService.mainApp.register()
+            do { try SMAppService.mainApp.register() }
+            catch { logger.warning("[AppState] Auto-launch register failed: \(error.localizedDescription)") }
         } else {
-            try? SMAppService.mainApp.unregister()
+            do { try SMAppService.mainApp.unregister() }
+            catch { logger.warning("[AppState] Auto-launch unregister failed: \(error.localizedDescription)") }
         }
 
         // Register global keyboard shortcuts based on current recording mode
