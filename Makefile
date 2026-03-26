@@ -32,8 +32,8 @@ bundle: build
 	@echo "Built $(APP_BUNDLE)"
 
 install: bundle
-	cp -R "$(APP_BUNDLE)" ~/Applications/
-	@echo "Installed to ~/Applications/$(PRODUCT_NAME).app"
+	cp -R "$(APP_BUNDLE)" /Applications/
+	@echo "Installed to /Applications/$(PRODUCT_NAME).app"
 
 clean:
 	swift package clean
