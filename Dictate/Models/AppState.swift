@@ -53,6 +53,9 @@ final class AppState {
     private var recordingTimeoutTimer: Timer?
     private static let maxRecordingDuration: TimeInterval = 120
 
+    // Escape key monitors (active only during recording)
+    private var escapeMonitors: [Any] = []
+
     // MARK: - Computed
     var menuBarIconName: String {
         switch status {
@@ -154,9 +157,13 @@ final class AppState {
             }
         }
 
-        // Cancel is always key-up
-        KeyboardShortcuts.onKeyUp(for: .cancelRecording) { [weak self] in
-            self?.cancelRecording()
+        // Cancel shortcut: only register if user has set a custom (non-escape) shortcut.
+        // Escape key is handled separately via NSEvent monitors (only active during recording).
+        if let shortcut = KeyboardShortcuts.getShortcut(for: .cancelRecording),
+           shortcut.key != .escape || !shortcut.modifiers.isEmpty {
+            KeyboardShortcuts.onKeyUp(for: .cancelRecording) { [weak self] in
+                self?.cancelRecording()
+            }
         }
 
         KeyboardShortcuts.onKeyUp(for: .openSettings) {
@@ -221,6 +228,40 @@ final class AppState {
         audioLevelTimer = nil
     }
 
+    // MARK: - Escape Key Monitoring
+
+    /// Starts monitoring the Escape key during recording only.
+    /// Uses NSEvent monitors so the key is NOT globally consumed when not recording.
+    private func startEscapeMonitoring() {
+        stopEscapeMonitoring()
+        // Global monitor: catches Escape when another app is frontmost
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
+            if event.keyCode == 53 { // kVK_Escape
+                DispatchQueue.main.async { self?.cancelRecording() }
+            }
+        }) {
+            escapeMonitors.append(global)
+        }
+        // Local monitor: catches Escape when Dictate window/menu is frontmost
+        if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
+            if event.keyCode == 53 {
+                DispatchQueue.main.async { self?.cancelRecording() }
+                return nil // consume the event so it doesn't propagate
+            }
+            return event
+        }) {
+            escapeMonitors.append(local)
+        }
+    }
+
+    /// Stops all Escape key monitors.
+    private func stopEscapeMonitoring() {
+        for monitor in escapeMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        escapeMonitors.removeAll()
+    }
+
     // MARK: - Recording Lifecycle
 
     func toggleRecording() {
@@ -264,6 +305,7 @@ final class AppState {
                 logger.error("[AppState] startRecording failed: \(error.localizedDescription)")
                 errorMessage = "録音の開始に失敗しました: \(error.localizedDescription)"
                 status = .error
+                stopEscapeMonitoring()
                 overlayController.hideOverlay()
             }
         }
@@ -321,6 +363,9 @@ final class AppState {
         )
         overlayController.showOverlay(content: overlayView)
 
+        // Start Escape key monitoring (recording-only; prevents system-wide Escape theft)
+        startEscapeMonitoring()
+
         // Start audio recording
         try audioRecorder.startRecording()
 
@@ -355,6 +400,7 @@ final class AppState {
         recordingTimeoutTimer?.invalidate()
         recordingTimeoutTimer = nil
         status = .processing
+        stopEscapeMonitoring()
 
         Task { @MainActor in
             do {
@@ -438,6 +484,7 @@ final class AppState {
 
         recordingTimeoutTimer?.invalidate()
         recordingTimeoutTimer = nil
+        stopEscapeMonitoring()
         audioRecorder.cancelRecording()
         deepgramService?.close()
         deepgramService = nil
