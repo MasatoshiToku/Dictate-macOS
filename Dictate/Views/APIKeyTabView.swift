@@ -11,9 +11,11 @@ struct APIKeyTabView: View {
     @State private var deepgramStatus: ValidationStatus = .none
     @State private var showGeminiKey = false
     @State private var showDeepgramKey = false
+    @State private var showDeleteGeminiConfirm = false
+    @State private var showDeleteDeepgramConfirm = false
 
     enum ValidationStatus {
-        case none, validating, valid, invalid(String)
+        case none, validating, valid, saved, invalid(String)
     }
 
     var body: some View {
@@ -29,23 +31,36 @@ struct APIKeyTabView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button(showGeminiKey ? "Cancel" : "Edit") {
-                        showGeminiKey.toggle()
-                        if !showGeminiKey { geminiKey = "" }
-                    }
-
                     if showGeminiKey {
                         Button("Save") {
                             saveGeminiKey()
                         }
                         .disabled(geminiKey.isEmpty)
+
+                        Button("Cancel") {
+                            showGeminiKey = false
+                            geminiKey = ""
+                            geminiStatus = .none
+                        }
+                    } else {
+                        Button("Edit") {
+                            showGeminiKey = true
+                            geminiStatus = .none
+                        }
+
+                        if !geminiMasked.isEmpty {
+                            Button("Delete", role: .destructive) {
+                                showDeleteGeminiConfirm = true
+                            }
+                            .foregroundColor(.red)
+                        }
                     }
                 }
 
                 statusView(geminiStatus)
             }
 
-            Section("Deepgram API Key (Optional — enables real-time preview)") {
+            Section("Deepgram API Key (Optional -- enables real-time preview)") {
                 HStack {
                     if showDeepgramKey {
                         TextField("Enter Deepgram API key", text: $deepgramKey)
@@ -56,26 +71,61 @@ struct APIKeyTabView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button(showDeepgramKey ? "Cancel" : "Edit") {
-                        showDeepgramKey.toggle()
-                        if !showDeepgramKey { deepgramKey = "" }
-                    }
-
                     if showDeepgramKey {
                         Button("Save") {
                             saveDeepgramKey()
                         }
                         .disabled(deepgramKey.isEmpty)
+
+                        Button("Cancel") {
+                            showDeepgramKey = false
+                            deepgramKey = ""
+                            deepgramStatus = .none
+                        }
+                    } else {
+                        Button("Edit") {
+                            showDeepgramKey = true
+                            deepgramStatus = .none
+                        }
+
+                        if !deepgramMasked.isEmpty {
+                            Button("Delete", role: .destructive) {
+                                showDeleteDeepgramConfirm = true
+                            }
+                            .foregroundColor(.red)
+                        }
                     }
                 }
 
                 statusView(deepgramStatus)
+            }
+
+            Section {
+                Text("API keys are stored locally in UserDefaults and never sent to third parties.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
         .onAppear {
             geminiMasked = keychainService.getMaskedValue(key: KeychainService.geminiKeyName) ?? ""
             deepgramMasked = keychainService.getMaskedValue(key: KeychainService.deepgramKeyName) ?? ""
+        }
+        .alert("Delete Gemini API Key?", isPresented: $showDeleteGeminiConfirm) {
+            Button("Delete", role: .destructive) {
+                deleteGeminiKey()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove the Gemini API key. You will need to re-enter it to use dictation.")
+        }
+        .alert("Delete Deepgram API Key?", isPresented: $showDeleteDeepgramConfirm) {
+            Button("Delete", role: .destructive) {
+                deleteDeepgramKey()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove the Deepgram API key. Real-time preview will be disabled.")
         }
     }
 
@@ -92,6 +142,9 @@ struct APIKeyTabView: View {
         case .valid:
             Label("Valid", systemImage: "checkmark.circle.fill")
                 .foregroundColor(.green)
+        case .saved:
+            Label("Saved", systemImage: "checkmark.circle.fill")
+                .foregroundColor(.green)
         case .invalid(let message):
             Label(message, systemImage: "xmark.circle.fill")
                 .foregroundColor(.red)
@@ -106,9 +159,12 @@ struct APIKeyTabView: View {
                 try keychainService.save(key: KeychainService.geminiKeyName, value: key)
                 GeminiServiceManager.initialize(apiKey: key)
                 geminiMasked = KeychainService.maskApiKey(key)
-                geminiStatus = .valid
+                geminiStatus = .saved
                 showGeminiKey = false
                 geminiKey = ""
+                // Auto-clear status after delay
+                try? await Task.sleep(for: .seconds(3))
+                if case .saved = geminiStatus { geminiStatus = .none }
             } catch {
                 geminiStatus = .invalid(error.localizedDescription)
             }
@@ -124,15 +180,38 @@ struct APIKeyTabView: View {
                 if valid {
                     try keychainService.save(key: KeychainService.deepgramKeyName, value: key)
                     deepgramMasked = KeychainService.maskApiKey(key)
-                    deepgramStatus = .valid
+                    deepgramStatus = .saved
                     showDeepgramKey = false
                     deepgramKey = ""
+                    // Auto-clear status after delay
+                    try? await Task.sleep(for: .seconds(3))
+                    if case .saved = deepgramStatus { deepgramStatus = .none }
                 } else {
                     deepgramStatus = .invalid("Invalid API key")
                 }
             } catch {
                 deepgramStatus = .invalid(error.localizedDescription)
             }
+        }
+    }
+
+    private func deleteGeminiKey() {
+        do {
+            try keychainService.delete(key: KeychainService.geminiKeyName)
+            geminiMasked = ""
+            geminiStatus = .none
+        } catch {
+            geminiStatus = .invalid("Failed to delete: \(error.localizedDescription)")
+        }
+    }
+
+    private func deleteDeepgramKey() {
+        do {
+            try keychainService.delete(key: KeychainService.deepgramKeyName)
+            deepgramMasked = ""
+            deepgramStatus = .none
+        } catch {
+            deepgramStatus = .invalid("Failed to delete: \(error.localizedDescription)")
         }
     }
 }

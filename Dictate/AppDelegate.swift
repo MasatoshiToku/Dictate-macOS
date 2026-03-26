@@ -294,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let window = NSWindow(contentViewController: hostingController)
             window.title = "Dictate Settings"
             window.styleMask = [.titled, .closable, .resizable]
-            window.setContentSize(NSSize(width: 600, height: 470))
+            window.setContentSize(NSSize(width: 600, height: 500))
             window.center()
             settingsWindow = window
         }

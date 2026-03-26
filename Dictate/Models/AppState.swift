@@ -157,7 +157,7 @@ final class AppState {
         }
 
         KeyboardShortcuts.onKeyUp(for: .openSettings) {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            AppDelegate.shared?.openSettings()
         }
 
     }

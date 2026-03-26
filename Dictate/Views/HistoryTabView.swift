@@ -5,6 +5,7 @@ struct HistoryTabView: View {
     let historyService: HistoryService
     @State private var entries: [TranscriptionHistoryEntry] = []
     @State private var searchText = ""
+    @State private var showClearConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,8 +20,7 @@ struct HistoryTabView: View {
 
                 if !entries.isEmpty {
                     Button("Clear All", role: .destructive) {
-                        historyService.deleteAll()
-                        refreshEntries(query: searchText)
+                        showClearConfirm = true
                     }
                     .foregroundColor(.red)
                 }
@@ -64,6 +64,15 @@ struct HistoryTabView: View {
             }
         }
         .onAppear { refreshEntries(query: "") }
+        .alert("Clear All History?", isPresented: $showClearConfirm) {
+            Button("Clear All", role: .destructive) {
+                historyService.deleteAll()
+                refreshEntries(query: searchText)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all transcription history entries.")
+        }
     }
 
     private func refreshEntries(query: String) {

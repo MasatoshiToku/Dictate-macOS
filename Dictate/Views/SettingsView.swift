@@ -5,6 +5,12 @@ struct SettingsView: View {
     let appState: AppState
     @State private var settings = AppSettings.load()
 
+    private var versionString: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "Dictate v\(version) (\(build))"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             TabView {
@@ -26,11 +32,11 @@ struct SettingsView: View {
 
             Divider()
 
-            Text("Dictate v1.0.0")
+            Text(versionString)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .padding(.vertical, 6)
         }
-        .frame(width: 600, height: 470)
+        .frame(width: 600, height: 500)
     }
 }

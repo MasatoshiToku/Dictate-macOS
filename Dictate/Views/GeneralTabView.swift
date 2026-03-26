@@ -5,6 +5,7 @@ import ServiceManagement
 
 struct GeneralTabView: View {
     @Binding var settings: AppSettings
+    @State private var showSaved = false
 
     var body: some View {
         Form {
@@ -60,7 +61,26 @@ struct GeneralTabView: View {
         .formStyle(.grouped)
         .onChange(of: settings) { _, newValue in
             newValue.save()
+            showSaved = true
+            // Auto-hide the saved indicator
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                showSaved = false
+            }
         }
+        .overlay(alignment: .bottom) {
+            if showSaved {
+                Text("Settings saved")
+                    .font(.caption)
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(.green.opacity(0.1), in: Capsule())
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .padding(.bottom, 8)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showSaved)
     }
 
     private func setLoginItem(enabled: Bool) {
