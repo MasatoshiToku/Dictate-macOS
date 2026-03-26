@@ -6,10 +6,10 @@ APP_BUNDLE = $(BUILD_DIR)/$(PRODUCT_NAME).app
 BINARY = $(BUILD_DIR)/$(PRODUCT_NAME)
 
 build:
-	swift build -c release
+	swift build -c release -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Dictate/Info.plist
 
 run:
-	swift build && .build/debug/$(PRODUCT_NAME)
+	swift build -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Dictate/Info.plist && .build/debug/$(PRODUCT_NAME)
 
 test:
 	swift test

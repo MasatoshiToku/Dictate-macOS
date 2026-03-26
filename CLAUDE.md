@@ -31,6 +31,7 @@
 ## Key Decisions
 - SPM-based project with Makefile for .app bundling
 - No Xcode project file -- CLI builds with `swift build`
+- **Info.plist must be embedded in the binary via linker flags** (`-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker Dictate/Info.plist`). SPM executables don't automatically read Info.plist from the .app bundle; macOS requires the plist in the Mach-O `__TEXT.__info_plist` section for LSUIElement and other keys to take effect.
 - Sparkle.framework must be bundled in .app/Contents/Frameworks/
 - Non-sandboxed (requires Accessibility for CGEvent text input)
 - Gemini API for transcription (primary), Deepgram for real-time interim text
